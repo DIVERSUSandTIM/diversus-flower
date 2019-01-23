@@ -1,11 +1,11 @@
-/*
+(function() {  // beginning of IIFE
+
+/*  IT IS ASSUMED THAT THE EQUIVALENT OF THESE ARE AVAILABLE IN THE ENVIRONMENT
 import React from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
 import Force from 'd3-force';
 import './styles.css';
-//import Ball from './Ball';
-//import Petal from './Petal';
 */
 
 rce = React.createElement;
@@ -494,6 +494,12 @@ DiversusFlower.defaultProps = {
   fixedColorFronds: true
 };
 
+  this.DiversusFlower = DiversusFlower;
+  this.putDiversusFlowerInElemOrId = function(elemOrId) {
+    var elem = (typeof elemOrId == 'string') ? document.querySelector('#'+elemOrId) : elemOrId;
+    return ReactDOM.render(React.createElement(DiversusFlower), elem);
+  }
+
 /*
 From Martin:
 * BG Colour/Opacity of Flower-Canvas
@@ -506,3 +512,4 @@ From Martin:
 * Duration of construction-animation (when the flower gets construction in the beginning. eg. when the user double-clicked a Petal in order to make it a new root, then flower has to get assembled newly)
 * In case there are springs (animations), tensions or fractions (in case you use physics) in the magnifier-animation it would be cool to have their properties available
 */
+})();
