@@ -1,3 +1,14 @@
+/*
+import React from 'react';
+import PropTypes from 'prop-types';
+import * as d3 from 'd3';
+import Force from 'd3-force';
+import './styles.css';
+//import Ball from './Ball';
+//import Petal from './Petal';
+*/
+
+rce = React.createElement;
 
 function petalRelPosToFrondLoc(relPos, numberOfFronds) {
   let idx = getBinIdx(relPos, numberOfFronds);
@@ -37,7 +48,7 @@ function calcRadiusOfPackedCircles(centralRadius, numPacked) {
 }
 let deadCenter = {cx: 0, cy: 0};
 
-class Reticle {
+class Reticle extends React.Component {
   renderLines() {
     var x,y,
         rays = this.props.rays,
@@ -49,21 +60,29 @@ class Reticle {
     while (i < twoPI) {
       x = Math.cos(i) * rayLength;
       y = Math.sin(i) * rayLength;
-      lines.push(`<line x2="${x}" y2="${y}" key="${'ray'+i}"/>`)
+
+      lines.push(rce('line',{x2:x, y2:y, key:'ray'+i}))
       i = i + inc;
     }
-    lines.push((`<line x1="${-100}" y1="${-100}" x2="${100}" y2="${100}" key="tlbr"/>`));
-    lines.push((`<line x1="100" y1="-100" x2="-100" y2="100" key="trbl"/>`));
+    lines.push(rce('line',{x1:-100, y1:-100, x2:100, y2:100, key:'tlbr'}));
+    lines.push(rce('line',{x1:100, y1:-100, x2:-100, y2:100, key:'trbl'}));
     return lines;
   }
   render() {
-    return (
-      `<g stroke=${this.props.color} x1=${this.props.cx} y1=${this.props.cy} strokeWidth="1">
-        ${this.renderLines()}
-      </g>`
-    )
+    return rce('g',
+               {stroke:this.props.color, x1:this.props.cx, y1:this.props.cy, strokeWidth:1},
+               this.renderLines());
   }
 }
+
+Reticle.propTypes = {
+  rays: PropTypes.number.isRequired,
+  rayLength: PropTypes.number.isRequired,
+  cx: PropTypes.number.isRequired,
+  cy: PropTypes.number.isRequired,
+  color: PropTypes.string.isRequired
+}
+
 Reticle.defaultProps = {
   rays: 24,
   rayLength: 250,
@@ -72,8 +91,9 @@ Reticle.defaultProps = {
   color: 'lightgrey'
 }
 
-class Petal {
+class Petal extends React.Component {
   constructor(props) {
+    super(props);
     if (!this.props.flower) {
       throw new Error('no flower for ',this.props.relPos)
     }
@@ -149,11 +169,8 @@ class Petal {
     //let label = this.props.relPos.toString().substring(0,4);
     let label = "d:" + Math.round(flower.state.dists[orderIdx]) + ";r:"+Math.round(petalRadius);
     label = "" //+ key;
-    //key = orderIdx + "";
-    return (
-        `<circle cx=${cx} cy=${cy} r=${petalRadius} stroke="black"
-           opacity=${petalOpacity} fill=${fill}/>`
-    )
+    return rce('circle',
+               {cx:cx, cy:cy, r:petalRadius, stroke:"black", opacity:petalOpacity, fill:fill});
     /*
            XonClick={this.onClick.bind(this)}
            XonContextMenu={this.onContextMenu.bind(this)}
@@ -161,7 +178,7 @@ class Petal {
 
   }
 }
-/*
+
 Petal.propTypes = {
   relPos: PropTypes.number,
   initialRadius: PropTypes.number,
@@ -170,38 +187,18 @@ Petal.propTypes = {
   initialPriority: PropTypes.number.isRequired,
   orderIdx: PropTypes.number
 };
-*/
+
 Petal.defaultProps = {
   fill: 'orange',
   initialPriority: 1.0
   //, initialRadius: 20
 };
-function overlay(target, source) {
-  return Object(target,getOwnPropertyDescriptors(source));
-}
-function acquireCLASSIC(lst) {
-  if (!lst.length) {
-    throw new Error('acquire(lst) should have at least on object in lst');
-  }
-  var retval = lst.shift(); // take off first obj
-  while (lst.length) {
-    var dominates = lst.shift()
-    retval = Object.getOwnPropertyDescriptors(retval, dominates);
-  }
-  return retval;
-}
-function acquire(...theArgs) {
-  return theArgs.reduce((lower, dominates) => {
-    return Object.getOwnPropertyDescriptors(lower || {}, dominates || {})
-  });
-}
-class Heir  {
+
+class Heir extends React.Component {
   // <SomeHeirSubclass whosYourDaddy={this.whoDad.bind(this) />
   constructor(props) {
-    //this.props = overlay(overlay({}, DiversusFlower.defaultProps), props)
-    this.props = acquire({}, DiversusFlower.defaultProps, props);
-    //super(props);
-    if (props && props.whosYourDaddy) {
+    super(props);
+    if (props.whosYourDaddy) {
       this.daddy = props.whosYourDaddy(this)
     }
   }
@@ -214,8 +211,7 @@ const divStyle = {
 
 class DiversusFlower extends Heir {
   constructor(props) {
-    super(props)
-
+    super(props);
     this.state = {
       centralRadius: 50,
       fronds: [],
@@ -246,10 +242,10 @@ class DiversusFlower extends Heir {
     this.sim = d3.forceSimulation(flower.nodes)
       //.force('collide', d3.forceCollide().radius(this.getPetalRadius.bind(this)).iterations(3))
       .force('collide', d3.forceCollide().radius(function(){alert('boo')}))
-      //.force("x", d3.forceX().strength(0.002))
-      //.force("y", d3.forceY().strength(0.002))
-      .force('center', d3.forceCenter(0, 0))
       .velocityDecay(0.2)
+      .force("x", d3.forceX().strength(0.002))
+      .force("y", d3.forceY().strength(0.002))
+      .force('center', d3.forceCenter(0, 0))
       .on('tick', ticked)
   }
 
@@ -337,11 +333,13 @@ class DiversusFlower extends Heir {
       }
       for (let petalIdx = 0; petalIdx < aFrond.petals.length; petalIdx++) {
         let {key, relPos, fillColor} = aFrond.petals[petalIdx];
-        //console.log("<Petal>", key, relPos);
         if (typeof key == 'undefined') throw new Error('no key');
-        retval.push((`<Petal relPos=${aFrond.relPos} key=${key}
-                     orderIdx=${petalIdx+1}
-                     fill=${fillColor} flower=${this}/>`));
+        retval.push(
+          rce(Petal,
+              {relPos: aFrond.relPos, key: key,
+               orderIdx: petalIdx+1, fill: fillColor,
+               flower: this}));
+
       }
     }
     return retval;
@@ -350,11 +348,11 @@ class DiversusFlower extends Heir {
     // https://en.wikipedia.org/wiki/Malfatti_circles
     // https://math.stackexchange.com/questions/1407779/arranging-circles-around-a-circle
     // http://www.packomania.com/
-    let retval = []
+    let retval = [];
     let max = this.props.numberOfFronds;
     for (let i = 0; i < max; i++) {
-      retval.push((`<Petal relPos=${i/max} key=${i}
-                       fill="purple" flower=${this}/>`));
+      retval.push((`<Petal relPos={i/max} key={i}
+                       fill="purple" flower={this}/>`));
     }
     return retval;
   }
@@ -394,8 +392,8 @@ class DiversusFlower extends Heir {
       `<animateTransform
          attributeName="transform"
          type="translate"
-         from=${oldCenterStr}
-         to=${newCenterStr}
+         from="${oldCenterStr}"
+         to="${newCenterStr}"
          begin="0s"
          dur=".5s"
          fill="freeze"
@@ -456,23 +454,19 @@ class DiversusFlower extends Heir {
     //  transform="translate(250,250)"
     const {title} = this.props;
     window.zeFlower = this;
-    return (
-      `<div  style={divStyle}>
-        <svg height="100%" width="100%" viewBox="-100 -100 200 200" >
-          {this.renderCenterer()}
-          <title>{title}</title>
-          <g>
-            <Reticle rayLength=${this.props.reticleRayLength} rays=${this.props.reticleRays}/>
-            <Petal orderIdx=${0} fill="yellow" flower=${this}/>
-            ${this.renderFronds()}
-          </g>
-        </svg>
-      </div>`
+    var svgElem = rce(
+      'svg',
+      {height:'100%', width:'100%', viewBox:"-100 -100 200 200"},
+      [
+        rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
+        rce(Petal, {orderIdx:0, fill:'yellow', flower:this}),
+        this.renderFronds()
+      ]
     );
+    return rce('div',{style: divStyle}, svgElem)
   }
 }
 
-/*
 DiversusFlower.propTypes = {
   title: PropTypes.string.isRequired,
   numberOfFronds: PropTypes.number.isRequired,
@@ -484,7 +478,6 @@ DiversusFlower.propTypes = {
   demoMode: PropTypes.bool,
   randomStreamInterval: PropTypes.number // how many msec between addRandomPetal
 };
-*/
 
 DiversusFlower.defaultProps = {
   title: "Hello",
@@ -500,7 +493,6 @@ DiversusFlower.defaultProps = {
   randomStreamInterval: 1,
   fixedColorFronds: true
 };
-(window.exports ? window.exports : this).DiversusFlower = DiversusFlower;
 
 /*
 From Martin:
