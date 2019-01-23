@@ -1,6 +1,7 @@
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8"><!-- needed by D3 because of the pi function and friends -->
     <style>
       body {animation: reload-flash .5s}
       @keyframes reload-flash {
@@ -12,23 +13,33 @@
         }
       }
     </style>
+    <!-- Get us some D3 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-force/1.1.0/d3-force.js"></script>
+
+    <!-- Load React. -->
+    <!-- Note: when deploying, replace "development.js" with "production.min.js". -->
+    <script src="https://unpkg.com/prop-types@15.6/prop-types.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
     <script>
       if (window.location.toString().endsWith('#')) {  // if a bare # is placed after the url then...
         setTimeout(function(){window.location.reload()}, 30000) // reload every 30 seconds
       }
     </script>
+    <title>DiversusFlower demo with no bundle</title>
+  </head>
+  <body onload="draw_flower(document.querySelector('#flower'))">
+    <h2>Diversus Flower demo with no bundle</h2>
+
+    <!-- Load our React component. -->
     <script src="../src/index.js"></script>
     <script>
-      var demo_flower = function(sel) {
-        var elem = document.querySelector(sel);
-      window.flower = new DiversusFlower(elem);
-      flower.toggleRandomStream();
+      window.draw_flower = function(elem) {
+        window.zeFlower = ReactDOM.render(React.createElement(DiversusFlower), elem);
       }
     </script>
-  </head>
-  <body onload="demo_flower('demoFlower')">
-    <div id="demoFlower">flower goes here</div>
+    <!-- We will put our React component inside this div. -->
+    <div id="flower"></div>
   </body>
 </html>
