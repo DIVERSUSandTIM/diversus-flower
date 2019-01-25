@@ -28,9 +28,18 @@
     <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
     <script src="../src/index.js"></script>
+    <script>
+      window.do_it = function() {
+        var flowerArgs = {numberOfFronds:11, maxRandomPetalCount: 300, proportionOfCenter: .33};
+        window.zeFlower = putDiversusFlowerInElemOrId(
+          document.querySelector('#flowerPot'),
+          flowerArgs);
+        window.zeFlower.setRootPetal({"fill": 'green'});
+      }
+    </script>
     <title>DiversusFlower demo with no bundle</title>
   </head>
-  <body onload="window.zeFlower = putDiversusFlowerInElemOrId(document.querySelector('#flowerPot'))">
+  <body onload="do_it()">
     <h2>Diversus Flower demo with no bundle</h2>
     <!-- We will put our React component inside this div. -->
     <div id="flowerPot"></div>

@@ -156,7 +156,7 @@ class Petal extends React.Component {
     }
     this.setState(delta);
     flower.nodes.push(delta)
-    console.log("num nodes:",flower.nodes.length, delta)
+    //console.log("num nodes:",flower.nodes.length, delta)
     //console.log("<Petal> state:", this.state, deltaState);
   }
   render() {
@@ -214,6 +214,7 @@ class DiversusFlower extends Heir {
     super(props);
     this.state = {
       centralRadius: 50,
+      centralPetal: null,
       fronds: [],
       petals: []
     };
@@ -344,7 +345,18 @@ class DiversusFlower extends Heir {
     }
     return retval;
   }
-  renderRingOfPetals() {
+  renderRootPetal() {
+    var retval = [];
+    if (this.state.rootArgs) {
+      var props = {flower: this};
+      for (var [k, v] of Object.entries(this.state.rootArgs)) {
+        props[k] = v;
+      }
+      retval.push(rce(Petal, props));
+    }
+    return retval;
+  }
+  XXXrenderRingOfPetals() {
     // https://en.wikipedia.org/wiki/Malfatti_circles
     // https://math.stackexchange.com/questions/1407779/arranging-circles-around-a-circle
     // http://www.packomania.com/
@@ -445,7 +457,21 @@ class DiversusFlower extends Heir {
       this.addRandomPetal();
     }
   }
-
+  setRootPetal(args) {
+    let rootArgs = {
+      relPos: null, // normally a number, null signifies the root petal
+      orderIdx: 0,            // zero for the central node?
+      key: getRandomId('p'),  // unique!
+      sortKey: Math.random(), // not unique
+      url: getRandomId("http://example.org/"),
+      fill: 'pink'
+      //flower: this
+    };
+    for (let [k, v] of Object.entries(args)) {
+      rootArgs[k] = v;
+    }
+    this.setState({'rootArgs': rootArgs})
+  }
   // https://codeburst.io/4-four-ways-to-style-react-components-ac6f323da822
   // https://www.sarasoueidan.com/blog/svg-coordinate-systems/
   //               {this.renderRingOfPetals()}
@@ -459,11 +485,12 @@ class DiversusFlower extends Heir {
       {height:'100%', width:'100%', viewBox:"-100 -100 200 200"},
       [
         rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
-        rce(Petal, {orderIdx:0, fill:'yellow', flower:this}),
+        //rce(Petal, {orderIdx:0, fill:'red', flower:this}),
+        this.renderRootPetal(),
         this.renderFronds()
       ]
     );
-    return rce('div',{style: divStyle}, svgElem)
+    return rce('div',{"style": divStyle}, svgElem);
   }
 }
 
@@ -495,9 +522,9 @@ DiversusFlower.defaultProps = {
 };
 
   this.DiversusFlower = DiversusFlower;
-  this.putDiversusFlowerInElemOrId = function(elemOrId) {
+  this.putDiversusFlowerInElemOrId = function(elemOrId, props) {
     var elem = (typeof elemOrId == 'string') ? document.querySelector('#'+elemOrId) : elemOrId;
-    return ReactDOM.render(React.createElement(DiversusFlower), elem);
+    return ReactDOM.render(React.createElement(DiversusFlower, props), elem);
   }
 
 /*
