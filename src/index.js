@@ -133,6 +133,10 @@ class Petal extends React.Component {
     }
   }
   makePeekSized() {
+    if (this.props.relPos == null) {
+      console.log("this is likely the rootPetal, so skipping makePeekSized()");
+      return;
+    }
     let {frondIdx, frond, args} = this.getTheGoods();
     console.log('makePeekSized() args:',args);
     //document.selectQuery()
@@ -169,12 +173,15 @@ class Petal extends React.Component {
     //let label = this.props.relPos.toString().substring(0,4);
     let label = "d:" + Math.round(flower.state.dists[orderIdx]) + ";r:"+Math.round(petalRadius);
     label = "" //+ key;
-    return rce('circle',
-               {cx:cx, cy:cy, r:petalRadius, stroke:"black", opacity:petalOpacity, fill:fill});
-    /*
-           XonClick={this.onClick.bind(this)}
-           XonContextMenu={this.onContextMenu.bind(this)}
-    */
+    let circleArgs = {cx:cx, cy:cy,
+                      r:petalRadius,
+                      stroke:"black", opacity:petalOpacity, fill:fill};
+    if (this.props.title) {
+      circleArgs.title = this.props.title;
+    }
+    circleArgs.onClick = this.onClick.bind(this);
+    circleArgs.onContextMenu = this.onContextMenu.bind(this)
+    return rce('circle', circleArgs);
 
   }
 }
@@ -293,6 +300,7 @@ class DiversusFlower extends Heir {
       url: getRandomId("http://example.org/"),
       fillColor: getRandomColor()
     };
+    args.title = args.url;
     //console.log("args",args);
     this.addPetal(args);
     if (this.randomPetalCount > this.props.maxRandomPetalCount) {
