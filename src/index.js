@@ -453,8 +453,6 @@ class DiversusFlower extends Heir {
   componentDidMount() {
     if (this.props.demoMode) {
       this.startRandomStream()
-    } else {
-      this.addRandomPetal();
     }
   }
   setRootPetal(args) {
@@ -516,7 +514,7 @@ DiversusFlower.defaultProps = {
   petalOpacity: 0.80,
   maxRandomPetalCount: 50,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
-  demoMode: true,
+  demoMode: false,
   randomStreamInterval: 1,
   fixedColorFronds: true
 };
