@@ -212,8 +212,10 @@ class Heir extends React.Component {
 }
 
 const divStyle = {
+  /*
   'height': '500px',
   'width': '500px'
+  */
 }
 
 class DiversusFlower extends Heir {
