@@ -103,10 +103,18 @@ class Petal extends React.Component {
     //   cx: 0.0  // the x coordinate of the center of this petal
     //   cy: 0.0  // the y coordinate of the center of this petal
   }
+  isRoot() {
+    return !this.props.relPos; // force a boolean response
+  }
   onClick(evt) {
     //console.log(evt);
     //console.log(this.state.cx,this.state.cy);
     console.log("props", this.props);
+    if (this.isRoot()) {
+      this.props.flower.callOnRootClick(evt, this);
+    } else {
+      this.props.flower.callOnPetalClick(evt, this);
+    }
     this.props.flower.peekAtPetal(this);
   }
   onContextMenu(evt) {
@@ -133,7 +141,7 @@ class Petal extends React.Component {
     }
   }
   makePeekSized() {
-    if (this.props.relPos == null) {
+    if (this.isRoot()) {
       console.log("this is likely the rootPetal, so skipping makePeekSized()");
       return;
     }
@@ -463,6 +471,22 @@ class DiversusFlower extends Heir {
   componentDidMount() {
     if (this.props.demoMode) {
       this.startRandomStream()
+    }
+  }
+  setRootClickHandler(handler) {
+    this.rootClickHandler = handler;
+  }
+  callOnRootClick(evt, petal) {
+    if (this.rootClickHandler) {
+      this.rootClickHandler.call(evt, petal);
+    }
+  }
+  setPetalClickHandler(handler) {
+    this.petalClickHandler = handler;
+  }
+  callOnPetalClick(evt, petal) {
+    if (this.petalClickHandler) {
+      this.petalClickHandler.call(evt, petal);
     }
   }
   setRootPetal(args) {
