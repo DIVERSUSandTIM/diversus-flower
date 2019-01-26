@@ -504,32 +504,33 @@ class DiversusFlower extends Heir {
 }
 
 DiversusFlower.propTypes = {
-  title: PropTypes.string.isRequired,
+  demoMode: PropTypes.bool,
   numberOfFronds: PropTypes.number.isRequired,
   packingOfPetals: PropTypes.number,
+  petalOpacity: PropTypes.number,
   proportionOfCenter: PropTypes.number.isRequired,
+  randomStreamInterval: PropTypes.number, // how many msec between addRandomPetal
   reticleRays: PropTypes.number,
   reticleRayLength: PropTypes.number,
-  petalOpacity: PropTypes.number,
-  demoMode: PropTypes.bool,
   svgClassName: PropTypes.string.isRequired,
-  randomStreamInterval: PropTypes.number // how many msec between addRandomPetal
+  title: PropTypes.string.isRequired
 };
 
 DiversusFlower.defaultProps = {
-  title: "Hello",
+  demoMode: false,
+  fixedColorFronds: true,
+  flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
+  maxRandomPetalCount: 50,
   numberOfFronds: 7,  // 11
   packingOfPetals: 8,
+  petalOpacity: 0.80,
   proportionOfCenter: .10, // .30 times the flowerMinDimension this controls the radius of the root
+  randomStreamInterval: 1,
   reticleRays: 80,
   reticleRayLength: 90,
-  petalOpacity: 0.80,
-  maxRandomPetalCount: 50,
-  flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
-  demoMode: false,
-  randomStreamInterval: 1,
   svgClassName: 'diversus-flower',
-  fixedColorFronds: true
+  title: "Hello"
+
 };
 
   this.DiversusFlower = DiversusFlower;
