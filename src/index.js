@@ -76,19 +76,19 @@ class Reticle extends React.Component {
 }
 
 Reticle.propTypes = {
-  rays: PropTypes.number.isRequired,
-  rayLength: PropTypes.number.isRequired,
+  color: PropTypes.string.isRequired,
   cx: PropTypes.number.isRequired,
   cy: PropTypes.number.isRequired,
-  color: PropTypes.string.isRequired
+  rays: PropTypes.number.isRequired,
+  rayLength: PropTypes.number.isRequired
 }
 
 Reticle.defaultProps = {
-  rays: 24,
-  rayLength: 250,
   cx: 0,
   cy: 0,
-  color: 'lightgrey'
+  color: 'lightgrey',
+  rays: 24,
+  rayLength: 250
 }
 
 class Petal extends React.Component {
@@ -187,12 +187,12 @@ class Petal extends React.Component {
 }
 
 Petal.propTypes = {
-  relPos: PropTypes.number,
-  initialRadius: PropTypes.number,
-//  key: PropTypes.string.isRequired,
   fill: PropTypes.string.isRequired,
   initialPriority: PropTypes.number.isRequired,
-  orderIdx: PropTypes.number
+  initialRadius: PropTypes.number,
+  //  key: PropTypes.string.isRequired,
+  orderIdx: PropTypes.number,
+  relPos: PropTypes.number
 };
 
 Petal.defaultProps = {
