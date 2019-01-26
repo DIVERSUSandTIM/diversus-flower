@@ -472,7 +472,7 @@ class DiversusFlower extends Heir {
       key: getRandomId('p'),  // unique!
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
-      fill: 'pink'
+      fill: 'yellow'
       //flower: this
     };
     for (let [k, v] of Object.entries(args)) {
@@ -495,7 +495,6 @@ class DiversusFlower extends Heir {
        "class": this.props.svgClassName},
       [
         rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
-        //rce(Petal, {orderIdx:0, fill:'red', flower:this}),
         this.renderRootPetal(),
         this.renderFronds()
       ]
