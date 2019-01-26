@@ -490,7 +490,9 @@ class DiversusFlower extends Heir {
     window.zeFlower = this;
     var svgElem = rce(
       'svg',
-      {height:'100%', width:'100%', viewBox:"-100 -100 200 200"},
+      {height:'100%', width:'100%',
+       viewBox:"-100 -100 200 200",  // FIXME why is this not "-100 -100 100 100" ???
+       "class": this.props.svgClassName},
       [
         rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
         //rce(Petal, {orderIdx:0, fill:'red', flower:this}),
@@ -511,6 +513,7 @@ DiversusFlower.propTypes = {
   reticleRayLength: PropTypes.number,
   petalOpacity: PropTypes.number,
   demoMode: PropTypes.bool,
+  svgClassName: PropTypes.string.isRequired,
   randomStreamInterval: PropTypes.number // how many msec between addRandomPetal
 };
 
@@ -526,6 +529,7 @@ DiversusFlower.defaultProps = {
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
   demoMode: false,
   randomStreamInterval: 1,
+  svgClassName: 'diversus-flower',
   fixedColorFronds: true
 };
 
