@@ -1,6 +1,6 @@
 (function() {  // beginning of IIFE
 
-/*  IT IS ASSUMED THAT THE EQUIVALENT OF THESE ARE AVAILABLE IN THE ENVIRONMENT
+/*  These are expected in the environment:
 import React from 'react';
 import PropTypes from 'prop-types';
 import * as d3 from 'd3';
@@ -10,6 +10,11 @@ import './styles.css';
 
 rce = React.createElement;
 
+function fix(stringOrNumber, places) {
+  places = (places != null) ? places : 2;
+  let num = (typeof stringOrNumber == 'number') ? stringOrNumber : Number.parseFloat(stringOrNumber)
+  return Number.parseFloat(num.toFixed(places));
+}
 function petalRelPosToFrondLoc(relPos, numberOfFronds) {
   let idx = getBinIdx(relPos, numberOfFronds);
   return [idx, getBinMid(idx, numberOfFronds)];
@@ -45,6 +50,9 @@ function calcRadiusOfPackedCircles(centralRadius, numPacked) {
       R = centralRadius,
       r = ((R * st2) / (1 - st2));
   return r;
+}
+function samePoint(p1, p2) {
+  return (p1.cx == p2.cx && p1.cy == p2.cy);
 }
 let deadCenter = {cx: 0, cy: 0};
 
@@ -142,11 +150,11 @@ class Petal extends React.Component {
   }
   makePeekSized() {
     if (this.isRoot()) {
-      console.log("this is likely the rootPetal, so skipping makePeekSized()");
+      console.log("this is the rootPetal, so skipping makePeekSized()");
       return;
     }
     let {frondIdx, frond, args} = this.getTheGoods();
-    console.log('makePeekSized() args:',args);
+    //console.log('makePeekSized() args:',args);
     //document.selectQuery()
   }
   componentWillMount() {
@@ -394,7 +402,7 @@ class DiversusFlower extends Heir {
   peekAtPetal(petal) {
     var petalCenter = petal.getCenter();
     console.log("petalCenter:", petalCenter);
-    let newCenter = {cx: petalCenter.cx/2, cy: petalCenter.cy/2};
+    let newCenter = {cx: fix(petalCenter.cx), cy: fix(petalCenter.cy)};
     this.shiftCenter(newCenter);
     petal.makePeekSized();
   }
@@ -403,33 +411,75 @@ class DiversusFlower extends Heir {
     this.shiftCenter(petal.getCenter());
   }
   shiftCenter(newCenter) {
+    console.clear();
     let oldCenter = this.state.center || deadCenter;
-    this.setState({center: newCenter});
-    this.setState({oldCenter: oldCenter});
-    console.log("shiftCenter()", newCenter);
+    console.log("newCenter",newCenter);
+    let newScale = samePoint(newCenter, deadCenter) ? "1 1" : this.props.onPeekScaleTo;
+    console.log("newScale", newScale);
+    let oldScale = (this.state.newScale) ? this.state.newScale : '1 1';
+    let newState = {center: newCenter,
+                    oldCenter: oldCenter,
+                    newScale: newScale,
+                    oldScale: oldScale};
+    this.setState(newState);
+    console.log("shiftCenter", JSON.stringify(newState));
   }
   renderCenterer() {
     let newCenter = this.state.center || deadCenter;
-    let oldCenter = this.state.oldCenter;
+    let oldCenter = this.state.oldCenter || deadCenter;
     if (JSON.stringify(newCenter) == JSON.stringify(oldCenter)) {
       return ([]);
     }
-    let newCenterStr = (-1 * newCenter.cx) + ' ' + (-1 * newCenter.cy);
-    let oldCenterStr = oldCenter.cx + ' ' + oldCenter.cy;
-    console.log("renderCenterer()");
-    console.log('https://stackoverflow.com/a/22217506/1234699')
-    return (
-      `<animateTransform
-         attributeName="transform"
-         type="translate"
-         from="${oldCenterStr}"
-         to="${newCenterStr}"
-         begin="0s"
-         dur=".5s"
-         fill="freeze"
-         repeatCount="0"
-        />`
-    );
+    let newCenterStr = (-1 * fix(newCenter.cx)) + ' ' + (-1 * fix(newCenter.cy));
+    let oldCenterStr = fix(oldCenter.cx) + ' ' + fix(oldCenter.cy);
+    console.log("renderCenterer()",oldCenterStr,"==>",newCenterStr);
+    let newScale = this.state.newScale ; //|| this.props.onPeekScaleTo;
+    let oldScale = this.state.oldScale || "1 1";
+    if (samePoint(newCenter,deadCenter)) {
+      console.log("renderCenterer() changing newScale from",newScale,"to '1 1'")
+      newScale = "1 1";
+    }
+    //console.log('https://stackoverflow.com/a/22217506/1234699')
+    /*
+      We must trigger the animation for it to actually begin.
+      It runs fine the first time it is triggered because the begin="0s" attribute
+      tells it to run immediately.  The challenge is to get the animation to run
+      on subsequent occasions.  One way to do this would be to remove the animateTransform
+      element after it has done its work (when is that?) and then to insert a new one.
+
+        https://stackoverflow.com/a/22217506/1234699
+        https://developer.mozilla.org/en-US/docs/Web/API/SVGAnimationElement
+    */
+    // wait 30msec (for the elem to be rerendered)
+    setTimeout(() => this.triggerAnimation('animateTransform'), 30);
+    return [
+      rce('animateTransform',
+          {attributeName: "transform",
+           type: "translate",
+           from: oldCenterStr,
+           to: newCenterStr,
+           begin: "indefinite",
+           dur: this.props.onPeekTranslateDuration,
+           fill: "freeze",
+           repeatCount: "0"}),
+      rce('animateTransform',
+          {attributeName: "transform",
+           type: "scale",
+           from: oldScale,
+           to: newScale,
+           begin: "indefinite",
+           dur: this.props.onPeekScaleDuration,
+           fill: "freeze",
+           repeatCount: "0"})
+    ];
+  }
+  triggerAnimation(selector) {
+    let anims = document.querySelectorAll(selector);
+    //console.log("anims", anims);
+    for (var i=0; i< anims.length; i++) {
+      console.log('beginElement()',anims[i]);
+      anims[i].beginElement();
+    }
   }
   calcRadii(centralRadius) {
     let maxFrondLength = 50;
@@ -488,6 +538,14 @@ class DiversusFlower extends Heir {
     if (this.petalClickHandler) {
       this.petalClickHandler.call(evt, petal);
     }
+    this.peekAtPetal(petal);
+  }
+  XXXXpeekPetal(peekedPetal) {
+    /*
+      Purpose: Animate the growing of the peekedPetal and slide the whole svg
+        to a center between the rootPetal and this peekedPetal
+    */
+    this.setState({'center': {cx: 100, cy:200}})
   }
   setRootPetal(args) {
     let rootArgs = {
@@ -516,11 +574,12 @@ class DiversusFlower extends Heir {
       'svg',
       {height:'100%', width:'100%',
        viewBox:"-100 -100 200 200",  // FIXME why is this not "-100 -100 100 100" ???
-       "class": this.props.svgClassName},
+       "className": this.props.svgClassName},
       [
         rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
         this.renderRootPetal(),
-        this.renderFronds()
+        this.renderFronds(),
+        this.renderCenterer()
       ]
     );
     return rce('div',{"style": divStyle}, svgElem);
@@ -541,6 +600,9 @@ DiversusFlower.propTypes = {
 };
 
 DiversusFlower.defaultProps = {
+  onPeekTranslateDuration: "1.5s",
+  onPeekScaleTo: ".5 .5",
+  onPeekScaleDuration: "1.5s",
   demoMode: false,
   fixedColorFronds: true,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
