@@ -423,6 +423,11 @@ class DiversusFlower extends Heir {
                     oldScale: oldScale};
     this.setState(newState);
     console.log("shiftCenter", JSON.stringify(newState));
+    this.scheduleAnimation();
+  }
+  scheduleAnimation() {
+    // wait 30msec so React has a chance to put the animateTransform elems into the svg
+    setTimeout(() => this.triggerAnimation('animateTransform'), 30);
   }
   renderCenterer() {
     let newCenter = this.state.center || deadCenter;
@@ -439,7 +444,6 @@ class DiversusFlower extends Heir {
       console.log("renderCenterer() changing newScale from",newScale,"to '1 1'")
       newScale = "1 1";
     }
-    //console.log('https://stackoverflow.com/a/22217506/1234699')
     /*
       We must trigger the animation for it to actually begin.
       It runs fine the first time it is triggered because the begin="0s" attribute
@@ -450,8 +454,7 @@ class DiversusFlower extends Heir {
         https://stackoverflow.com/a/22217506/1234699
         https://developer.mozilla.org/en-US/docs/Web/API/SVGAnimationElement
     */
-    // wait 30msec (for the elem to be rerendered)
-    setTimeout(() => this.triggerAnimation('animateTransform'), 30);
+    // these animations are triggered by scheduleAnimation
     return [
       rce('animateTransform',
           {attributeName: "transform",
@@ -513,9 +516,9 @@ class DiversusFlower extends Heir {
     this.setState({centralRadius: centralRadius});
     let radii = this.calcRadii(centralRadius);
     let dists = this.calcDists(radii);
-    this.setState({radii: radii});
-    this.setState({dists: dists});
-    this.setState({frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
+    this.setState({radii: radii,
+                   dists: dists,
+                   frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
     this.shiftCenter(deadCenter);
   }
   componentDidMount() {
