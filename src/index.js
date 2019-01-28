@@ -123,6 +123,7 @@ class Petal extends React.Component {
     } else {
       this.props.flower.callOnPetalClick(evt, this);
     }
+    console.log('calling peekAtPetal() from onClick()');
     this.props.flower.peekAtPetal(this);
   }
   onContextMenu(evt) {
@@ -403,15 +404,17 @@ class DiversusFlower extends Heir {
     var petalCenter = petal.getCenter();
     console.log("petalCenter:", petalCenter);
     let newCenter = {cx: fix(petalCenter.cx), cy: fix(petalCenter.cy)};
+    console.log('calling shiftCenter() from peekAtPetal()');
     this.shiftCenter(newCenter);
     petal.makePeekSized();
   }
   gotoPetal(petal) {
     console.log("%cBOLDLY GO", "color:red;");
+    console.log('calling shiftCenter() from gotoPetal()');
     this.shiftCenter(petal.getCenter());
   }
   shiftCenter(newCenter) {
-    console.clear();
+    window.shiftCenter = (window.shiftCenter || 0) + 1;
     let oldCenter = this.state.center || deadCenter;
     console.log("newCenter",newCenter);
     let newScale = samePoint(newCenter, deadCenter) ? "1 1" : this.props.onPeekScaleTo;
@@ -458,28 +461,37 @@ class DiversusFlower extends Heir {
     return [
       rce('animateTransform',
           {attributeName: "transform",
+           key: "recenterFlower",
            type: "translate",
            from: oldCenterStr,
            to: newCenterStr,
            begin: "indefinite",
            dur: this.props.onPeekTranslateDuration,
            fill: "freeze",
+           //additive: "sum",
            repeatCount: "0"}),
       rce('animateTransform',
           {attributeName: "transform",
+           key: "resizeFlower",
            type: "scale",
            from: oldScale,
            to: newScale,
            begin: "indefinite",
            dur: this.props.onPeekScaleDuration,
            fill: "freeze",
+           additive: "sum",
            repeatCount: "0"})
     ];
   }
   triggerAnimation(selector) {
     let anims = document.querySelectorAll(selector);
     //console.log("anims", anims);
-    for (var i=0; i< anims.length; i++) {
+    anims.forEach((anim) => {
+      console.log('beginElement()',anim);
+      anim.beginElement();
+    });
+    return;
+    for (var i=0; i < anims.length; i++) {
       console.log('beginElement()',anims[i]);
       anims[i].beginElement();
     }
@@ -519,6 +531,7 @@ class DiversusFlower extends Heir {
     this.setState({radii: radii,
                    dists: dists,
                    frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
+    console.log('calling shiftCenter() from componentWillMount()');
     this.shiftCenter(deadCenter);
   }
   componentDidMount() {
@@ -541,7 +554,8 @@ class DiversusFlower extends Heir {
     if (this.petalClickHandler) {
       this.petalClickHandler.call(evt, petal);
     }
-    this.peekAtPetal(petal);
+    console.log('calling peekAtPetal() from callOnPetalClick()');
+    //this.peekAtPetal(petal);
   }
   XXXXpeekPetal(peekedPetal) {
     /*
@@ -605,7 +619,7 @@ DiversusFlower.propTypes = {
 DiversusFlower.defaultProps = {
   onPeekTranslateDuration: "1.5s",
   onPeekScaleTo: ".5 .5",
-  onPeekScaleDuration: "1.5s",
+  onPeekScaleDuration: ".5s",
   demoMode: false,
   fixedColorFronds: true,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
