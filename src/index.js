@@ -228,13 +228,6 @@ class Heir extends React.Component {
   }
 }
 
-const divStyle = {
-  /*
-  'height': '500px',
-  'width': '500px'
-  */
-}
-
 class DiversusFlower extends Heir {
   constructor(props) {
     super(props);
@@ -599,7 +592,7 @@ class DiversusFlower extends Heir {
         this.renderCenterer()
       ]
     );
-    return rce('div',{"style": divStyle}, svgElem);
+    return svgElem;
   }
 }
 
