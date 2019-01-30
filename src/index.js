@@ -155,6 +155,11 @@ class Petal extends React.Component {
       return;
     }
     let {frondIdx, frond, args} = this.getTheGoods();
+    this.setState({targetRadius: this.props.flower.props.peekedRadius,
+                   naturalRadius: this.state.petalRadius,
+                   naturalCx: this.state.cx,
+                   naturalCy: this.state.cy});
+    this.flower.startAnimation();
     //console.log('makePeekSized() args:',args);
     //document.selectQuery()
   }
@@ -239,6 +244,7 @@ class DiversusFlower extends Heir {
     };
     this.nodes = [];
     //this.prepareSimulation();
+    this.initAnimation();
   }
   prepareSimulation() {
     let flower = this;
@@ -408,6 +414,7 @@ class DiversusFlower extends Heir {
   }
   shiftCenter(newCenter) {
     window.shiftCenter = (window.shiftCenter || 0) + 1;
+    let firstTime = (! this.state.center);
     let oldCenter = this.state.center || deadCenter;
     console.log("newCenter",newCenter);
     let newScale = samePoint(newCenter, deadCenter) ? "1 1" : this.props.onPeekScaleTo;
@@ -419,9 +426,64 @@ class DiversusFlower extends Heir {
                     oldScale: oldScale};
     this.setState(newState);
     console.log("shiftCenter", JSON.stringify(newState));
-    this.scheduleAnimation();
+    if (! firstTime) {
+      this.scheduleAnimationLEGACY();
+      this.startAnimation();
+    }
   }
-  scheduleAnimation() {
+  /* BEGINING OF THE ANIMATION
+
+    The animation of transitions is implemented with the help of this animation main loop:
+      https://github.com/IceCreamYou/MainLoop.js
+
+    The flower does not need the loop to be running all the time, just during transitions
+    from one configuration to another.
+
+      initAnimation() -- called once to set up MainLoop to control the animation
+      startAnimation() -- this starts the mainloop running
+      stopAnimation() -- yup, stops it
+   */
+  //
+  initAnimation() {
+    if (MainLoop) {
+      MainLoop.
+        setUpdate(this.updateAnimation.bind(this)).
+        setDraw(this.drawAnimation.bind(this)).
+        setEnd(this.endAnimation.bind(this));
+    } else {
+      console.log('MainLoop unavailable');
+    }
+  }
+  startAnimation() {
+    if (MainLoop) {
+      MainLoop.start();
+    }
+  }
+  stopAnimation() {
+    console.log('stopAnimation()');
+    if (MainLoop) {
+      MainLoop.stop();
+    }
+  }
+  updateAnimation() {
+    console.log('updateAnimation()');
+    /*
+      translate svg
+      scale svg
+      scale clickedPetal up
+      scale previousPetal down
+     */
+  }
+  drawAnimation() {
+    //this.
+    console.log('drawAnimation()')
+  }
+  endAnimation() {
+    console.log('endAnimation()')
+  }
+  /* END OF THE ANIMATION */
+
+  scheduleAnimationLEGACY() {
     // wait 30msec so React has a chance to put the animateTransform elems into the svg
     setTimeout(() => this.triggerAnimation('animateTransform'), 30);
   }
