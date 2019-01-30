@@ -458,13 +458,33 @@ class DiversusFlower extends Heir {
       MainLoop.
         setUpdate(this.updateAnimation.bind(this)).
         setDraw(this.drawAnimation.bind(this)).
-        setEnd(this.endAnimation.bind(this));
+        setBegin(this.beginOfLoop.bind(this)).
+        setEnd(this.endOfLoop.bind(this));
     } else {
       console.log('MainLoop unavailable');
     }
   }
   startAnimation() {
     if (MainLoop) {
+      let newCenter = this.state.center || deadCenter;
+      let oldCenter = this.state.oldCenter || deadCenter;
+      if (JSON.stringify(newCenter) == JSON.stringify(oldCenter)) {
+        console.log("startAnimation() is bailing because finalCenter(",
+                    newCenter, ") equals initialCenter (" + oldCenter + ")");
+        return ([]);
+      }
+      let newCenterStr = (-1 * fix(newCenter.cx)) + ' ' + (-1 * fix(newCenter.cy));
+      let oldCenterStr = fix(oldCenter.cx) + ' ' + fix(oldCenter.cy);
+      console.log("renderCenterer()",oldCenterStr,"==>",newCenterStr);
+      let newScale = this.state.newScale ; //|| this.props.onPeekScaleTo;
+      let oldScale = this.state.oldScale || "1 1";
+      if (samePoint(newCenter,deadCenter)) {
+        console.log("renderCenterer() changing newScale from",newScale,"to '1 1'")
+        newScale = "1 1";
+      }
+      this.setState({finalCenter: newCenter,
+                     initialCenter: oldCenter});
+      this.animationStartTime = Date.now();
       MainLoop.start();
     }
   }
@@ -474,23 +494,43 @@ class DiversusFlower extends Heir {
       MainLoop.stop();
     }
   }
-  updateAnimation() {
-    console.log('updateAnimation()');
-    /*
-      translate svg
-      scale svg
-      scale clickedPetal up
-      scale previousPetal down
-    */
-    this.setState({});
-    this.stopAnimation(); // nothing happening yet, so we can stop already
+  /*
+    Here in updateAnimation() is where the in-betweening should happen for:
+      1) SVG scale
+      2) SVG translate
+      3) petal-CIRCLE radius
+      4) petel-CIRCLE center
+    We do not call setState() from here though because that would trigger the drawing
+    which is the responsibility of updateAnimation().
+
+    Here, though we must attend to the fraction of the
+  */
+  updateAnimation(deltaSec) {
+    console.log(`updateAnimation(${deltaSec})`);
+    if (Date.now() - this.animationStartTime > (this.props.durationOfAnimation * 1000)) {
+      // The animation duration has been exceeded, so stop.
+      this.stopAnimation();
+    }
   }
-  drawAnimation() {
-    //this.
-    console.log('drawAnimation()')
+  /*
+     To play nicely with React, drawAnimation() is where the calls to setState should happen
+     since they trigger the actual rendering.
+  */
+  drawAnimation(interpolationPercentage) {
+    console.log(`drawAnimation(${interpolationPercentage})`)
   }
-  endAnimation() {
-    console.log('endAnimation()')
+  /*
+   * beginOfLoop() always runs exactly once per frame.
+   */
+  beginOfLoop() {
+    console.log('beginAnimation');
+  }
+  /*
+    endOfLoop() always runs exactly once per frame.
+   */
+  endOfLoop() {
+    // REVIEW should should we do a final setState here to ensure proper resting scale and position?
+    console.log('endOfLoop()');
   }
   /* END OF THE ANIMATION */
 
@@ -548,6 +588,7 @@ class DiversusFlower extends Heir {
            additive: "sum",
            repeatCount: "0"})
     ];
+    
   }
   triggerAnimation(selector) {
     let anims = document.querySelectorAll(selector);
@@ -660,7 +701,8 @@ class DiversusFlower extends Heir {
     var svgElem = rce(
       'svg',
       {height:'100%', width:'100%',
-       transform: `scale(${this.state.scaleX} ${this.state.scaleY}) translate(${this.state.translateX} ${this.state.translateY})`,
+       transform: `scale(${this.state.scaleX} ${this.state.scaleY}) ` +
+                  `translate(${this.state.translateX} ${this.state.translateY})`,
        viewBox:"-100 -100 200 200",  // FIXME why is this not "-100 -100 100 100" ???
        "className": this.props.svgClassName},
       [
@@ -688,6 +730,9 @@ DiversusFlower.propTypes = {
 };
 
 DiversusFlower.defaultProps = {
+  velocityOfScale: .333,       // 1/3 ie full scale in three seconds
+  velocityOfTranslation:  33, // full translation in 3 seconds
+  durationOfAnimation: 1,     // 1 seconds
   onPeekTranslateDuration: "1.5s",
   onPeekScaleTo: ".5 .5",
   onPeekScaleDuration: ".5s",
@@ -704,7 +749,6 @@ DiversusFlower.defaultProps = {
   reticleRayLength: 90,
   svgClassName: 'diversus-flower',
   title: "Hello"
-
 };
 
   this.DiversusFlower = DiversusFlower;
