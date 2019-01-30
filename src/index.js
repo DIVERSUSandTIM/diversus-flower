@@ -159,7 +159,7 @@ class Petal extends React.Component {
                    naturalRadius: this.state.petalRadius,
                    naturalCx: this.state.cx,
                    naturalCy: this.state.cy});
-    this.flower.startAnimation();
+    this.props.flower.startAnimation();
     //console.log('makePeekSized() args:',args);
     //document.selectQuery()
   }
@@ -302,6 +302,7 @@ class DiversusFlower extends Heir {
   }
   stopRandomStream(){
     if (this.randomStreamTimer) {
+      console.log('stopRandomStream');
       clearInterval(this.randomStreamTimer);
       delete this.randomStreamTimer;
     } else {
@@ -420,14 +421,22 @@ class DiversusFlower extends Heir {
     let newScale = samePoint(newCenter, deadCenter) ? "1 1" : this.props.onPeekScaleTo;
     console.log("newScale", newScale);
     let oldScale = (this.state.newScale) ? this.state.newScale : '1 1';
-    let newState = {center: newCenter,
-                    oldCenter: oldCenter,
-                    newScale: newScale,
-                    oldScale: oldScale};
+    let scale = newScale.split(' ');
+    console.log("scale", scale);
+    console.log("newCenter", newCenter);
+    let newState = {
+      translateX: newCenter.cx,
+      translateY: newCenter.cy,
+      scaleX: scale[0],
+      scaleY: scale[1],
+      center: newCenter,
+      oldCenter: oldCenter,
+      newScale: newScale,
+      oldScale: oldScale};
     this.setState(newState);
     console.log("shiftCenter", JSON.stringify(newState));
     if (! firstTime) {
-      this.scheduleAnimationLEGACY();
+      //this.scheduleAnimationLEGACY();
       this.startAnimation();
     }
   }
@@ -472,7 +481,9 @@ class DiversusFlower extends Heir {
       scale svg
       scale clickedPetal up
       scale previousPetal down
-     */
+    */
+    this.setState({});
+    this.stopAnimation(); // nothing happening yet, so we can stop already
   }
   drawAnimation() {
     //this.
@@ -585,6 +596,10 @@ class DiversusFlower extends Heir {
     let dists = this.calcDists(radii);
     this.setState({radii: radii,
                    dists: dists,
+                   scaleX: 1,
+                   scaleY: 1,
+                   translateX: 0,
+                   translateY: 0,
                    frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
     console.log('calling shiftCenter() from componentWillMount()');
     this.shiftCenter(deadCenter);
@@ -645,13 +660,14 @@ class DiversusFlower extends Heir {
     var svgElem = rce(
       'svg',
       {height:'100%', width:'100%',
+       transform: `scale(${this.state.scaleX} ${this.state.scaleY}) translate(${this.state.translateX} ${this.state.translateY})`,
        viewBox:"-100 -100 200 200",  // FIXME why is this not "-100 -100 100 100" ???
        "className": this.props.svgClassName},
       [
         rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
         this.renderRootPetal(),
         this.renderFronds(),
-        this.renderCenterer()
+        //this.renderCenterer()
       ]
     );
     return svgElem;
