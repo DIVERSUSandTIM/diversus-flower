@@ -8,6 +8,14 @@ import Force from 'd3-force';
 import './styles.css';
 */
 
+
+/**
+ * Diversus Flower
+ * ---------------
+ *
+ * This is an implementation of the graph visualization touring experience depicted here:
+ *    https://vimeo.com/251879145
+ */
 rce = React.createElement;
 
 function fix(stringOrNumber, places) {
@@ -78,7 +86,8 @@ class Reticle extends React.Component {
   }
   render() {
     return rce('g',
-               {stroke:this.props.color, x1:this.props.cx, y1:this.props.cy, strokeWidth:1},
+               {stroke:this.props.color, x1:this.props.cx, y1:this.props.cy,
+                className: 'flower_reticle', strokeWidth:1},
                this.renderLines());
   }
 }
@@ -102,44 +111,57 @@ Reticle.defaultProps = {
 class Petal extends React.Component {
   constructor(props) {
     super(props);
-    if (!this.props.flower) {
+    var flower = this.getFlower();
+    if (!flower) {
       throw new Error('no flower for ',this.props.relPos)
     }
+    flower.registerPetal(this);
     // state:
     //   petalRadius: 12 // the radius (in pixels) of the petal
     //   angle: 0 // the angle of the center of this petal to its parent's center
     //   cx: 0.0  // the x coordinate of the center of this petal
     //   cy: 0.0  // the y coordinate of the center of this petal
   }
+  componentWillUnmount() {
+    console.log("componentWillUnmount()");
+    this.getFlower().unregisterPetal(this);
+  }
+  getFlower() {
+    return this.props.flower;
+  }
+  getKey() {
+    return this.props.myKey;
+  }
   isRoot() {
-    return !this.props.relPos; // force a boolean response
+    // TODO make 'root-ness' a more semantic factor.  What happens when petals become root?
+    //return !this.props.relPos;
+    return !!this.state.isRoot; // force a boolean response
   }
   onClick(evt) {
-    //console.log(evt);
-    //console.log(this.state.cx,this.state.cy);
-    console.log("props", this.props);
+    //evt.stopPropagation()
+    //evt.preventDefault()
+    this.callExternalClickHandlers(evt);
+    if (this.state.isTheFocus) {
+      // TODO deal with click vs double click
+      // This is already the focused petal so there is no need for a transformation, so bail.
+      return;
+    }
+    console.log('calling peekAtPetal() from onClick()' + (this.isRoot() ? ' for root' : ''));
+    this.props.flower.focusOnPetal(this, evt.target);
+  }
+  callExternalClickHandlers(evt) {
     if (this.isRoot()) {
       this.props.flower.callOnRootClick(evt, this);
     } else {
       this.props.flower.callOnPetalClick(evt, this);
     }
-    console.log('calling peekAtPetal() from onClick()');
-    this.props.flower.peekAtPetal(this);
   }
-  onContextMenu(evt) {
-    //console.log(evt);
-    //console.log(this.state.cx,this.state.cy);
-    evt.stopPropagation()
-    evt.preventDefault()
-    console.log("props", this.props);
-    this.props.flower.gotoPetal(this);
-  }
-  getCenter() {
-    //console.log("getCenter()",this.props);
-    return {cx: this.state.cx, cy: this.state.cy};
+  getCenter(factor) {
+    factor = (factor) && factor || 1;
+    return {cx: this.state.cx * factor, cy: this.state.cy * factor};
   }
   getTheGoods() {
-    let flower = this.props.flower;
+    let flower = this.getFlower();
     // FIXME Is there a better way to get the frondIdx?  Put it on the Petal.props?
     let frondIdx = getBinIdx(this.props.relPos, flower.props.numberOfFronds);
     let frond = flower.state.fronds[frondIdx];
@@ -154,18 +176,19 @@ class Petal extends React.Component {
       console.log("this is the rootPetal, so skipping makePeekSized()");
       return;
     }
+    var flower = this.getFlower();
     let {frondIdx, frond, args} = this.getTheGoods();
-    this.setState({targetRadius: this.props.flower.props.peekedRadius,
+    this.setState({targetRadius: flower.props.peekedRadius,
                    naturalRadius: this.state.petalRadius,
                    naturalCx: this.state.cx,
                    naturalCy: this.state.cy});
-    this.props.flower.startAnimation();
+    flower.startAnimation();
     //console.log('makePeekSized() args:',args);
     //document.selectQuery()
   }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
-    let flower = this.props.flower;
+    let flower = this.getFlower();
     let orderIdx = this.props.orderIdx || 0;
     let centralRadius = flower.state.centralRadius;  // the radius of the central circle
     let delta = {} ;
@@ -180,13 +203,20 @@ class Petal extends React.Component {
       delta.cx = 0;
       delta.cy = 0;
     }
+    delta.isRoot = !!this.props.isRoot;
     this.setState(delta);
-    flower.nodes.push(delta)
+    flower.nodes.push(delta);  // probably do not need DiversusFlower.petalsByKey and .nodes
     //console.log("num nodes:",flower.nodes.length, delta)
     //console.log("<Petal> state:", this.state, deltaState);
   }
+  componentDidMount() {
+    //var flower = this.getFlower();
+    //if (this.state.isRoot) {
+    //flower.
+  }
   render() {
-    let {fill, orderIdx, flower} = this.props;
+    let {fill, orderIdx} = this.props;
+    let flower = this.getFlower();
     //console.log(this.props);
     const petalOpacity = flower.props.petalOpacity;
     const {cx, cy, centralRadius, key} = this.state;
@@ -202,7 +232,6 @@ class Petal extends React.Component {
       circleArgs.title = this.props.title;
     }
     circleArgs.onClick = this.onClick.bind(this);
-    circleArgs.onContextMenu = this.onContextMenu.bind(this)
     return rce('circle', circleArgs);
 
   }
@@ -233,6 +262,49 @@ class Heir extends React.Component {
   }
 }
 
+/**
+ * Controller for one aspect of a set of simultaneous animated transformations.
+ */
+class AnimationTransformer {
+  constructor(flower, kwargs, ...ignore) {
+    this.flower = flower;
+    this.kwargs = kwargs;
+  }
+}
+/**
+ * Methods common to AnimationTransformers which affect the SVG as a whole.
+ */
+class FlowerTransformer extends AnimationTransformer {
+}
+/**
+ * Transform the flower from its current scale to a target scale.
+ */
+class FlowerResize extends FlowerTransformer {
+}
+/**
+ * Transform the center of the flower from its current position to a target position.
+ */
+class FlowerMove extends FlowerTransformer {
+}
+class PetalTransformer extends AnimationTransformer {
+  constructor(flower, kwargs, petal, ...ignore) {
+    super(flower, kwargs);
+    this.petal = petal;
+  }
+}
+
+/**
+ * Shrinks a Petal.
+ */
+class PetalShrink extends PetalTransformer {
+}
+/**
+ * Grows a Petal.
+ */
+class PetalGrow extends PetalTransformer {
+}
+
+
 class DiversusFlower extends Heir {
   constructor(props) {
     super(props);
@@ -243,6 +315,7 @@ class DiversusFlower extends Heir {
       petals: []
     };
     this.nodes = [];
+    this.petalByKey = {};
     //this.prepareSimulation();
     this.initAnimation();
   }
@@ -312,9 +385,11 @@ class DiversusFlower extends Heir {
   addRandomPetal() {
     this.randomPetalCount = this.randomPetalCount || 0;
     this.randomPetalCount++;
+    let key = getRandomId('p');  // unique!
     let args = {
       relPos: Math.random(),  // not unique
-      key: getRandomId('p'),  // unique!
+      key: key,
+      myKey: key,
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
       fillColor: getRandomColor()
@@ -348,6 +423,9 @@ class DiversusFlower extends Heir {
     if (this.props.fixedColorFronds) {
       args.fillColor = aFrond.frondColor;
     }
+    if (!args.myKey) {
+      args.key = args.myKey;
+    }
     aFrond.petals.push(args);
     this.state.fronds[idx] = aFrond;
     this.setState({fronds: this.state.fronds});
@@ -360,11 +438,11 @@ class DiversusFlower extends Heir {
         continue;
       }
       for (let petalIdx = 0; petalIdx < aFrond.petals.length; petalIdx++) {
-        let {key, relPos, fillColor} = aFrond.petals[petalIdx];
+        let {key, myKey, relPos, fillColor} = aFrond.petals[petalIdx];
         if (typeof key == 'undefined') throw new Error('no key');
         retval.push(
           rce(Petal,
-              {relPos: aFrond.relPos, key: key,
+              {relPos: aFrond.relPos, key: key, myKey: myKey,
                orderIdx: petalIdx+1, fill: fillColor,
                flower: this}));
 
@@ -383,38 +461,93 @@ class DiversusFlower extends Heir {
     }
     return retval;
   }
-  XXXrenderRingOfPetals() {
-    // https://en.wikipedia.org/wiki/Malfatti_circles
-    // https://math.stackexchange.com/questions/1407779/arranging-circles-around-a-circle
-    // http://www.packomania.com/
-    let retval = [];
-    let max = this.props.numberOfFronds;
-    for (let i = 0; i < max; i++) {
-      retval.push((`<Petal relPos={i/max} key={i}
-                       fill="purple" flower={this}/>`));
-    }
-    return retval;
-  }
   // https://nvbn.github.io/2017/03/14/react-generators/
   calcFrondRadius(centralRadius) {  // receiving centralRadius as param is an ugly hack
     return calcRadiusOfPackedCircles(centralRadius || this.state.centralRadius,
                                      this.props.numberOfFronds);
   }
-  peekAtPetal(petal) {
-    var petalCenter = petal.getCenter();
+  getFocusedPetal() {
+    return this.state.focusedPetal;
+  }
+  focusOnPetal(clickedPetal, clickedCircle) {
+    /*
+    var petalCenter = clickedPetal.getCenter();
     console.log("petalCenter:", petalCenter);
     let newCenter = {cx: fix(petalCenter.cx), cy: fix(petalCenter.cy)};
-    console.log('calling shiftCenter() from peekAtPetal()');
-    this.shiftCenter(newCenter);
-    petal.makePeekSized();
+
+    var animArgs = {};
+    if (clickedPetal.isRoot()) { // if the clicked node is the root
+      var priorFocusedPetal = this.getFocusedPetal();
+      animArgs.shrinkPetals = [priorFocusedPetal];  // an array for generality
+      animArgs.growPetals = []
+    }
+    */
+    this.initAnimationState(clickedPetal, this.getFocusedPetal());
+    // REVIEW When should the clickedPetal become the focusedPetal?
+    //   Either immediately (as implemented here) or after the animation is done.
+    //   Immediately is perhaps best because then more clicks can happen on nodes
+    //   while the animation is happening and then those can make sense too.
+    this.setFocusedPetal(clickedPetal);
   }
-  gotoPetal(petal) {
-    console.log("%cBOLDLY GO", "color:red;");
-    console.log('calling shiftCenter() from gotoPetal()');
-    this.shiftCenter(petal.getCenter());
+  /**
+   * Initializes the list of transformations which govern the evolving state of the animation.
+   *
+   * The following notation is used below:
+   *   * (F)ocused  -- the previously focused petal might be in a frond or it might be the root
+   *   * (C)licked  -- the petal which was clicked to trigger this animation
+   *   * (R)oot     -- the root petal
+   *
+   *  So the following situations can occur.
+   *
+   *        |      F==R       |      F!=R         Was the Focused petal the Root or not?
+   *   -----+-----------------+-----------------
+   *   C==F | C==F so NOOP    | C==F so NOOP      If C==F no animation needed.
+   *   -----+-----------------+-----------------
+   *   C!=R | shrink:R,grow:C |                   Root is Focus and petal clicked? Shrink the Root.
+   *        |                 | shrink:F,grow:C   PetalA is Focus and PetalB clicked? Root ignored.
+   *        |                 |                   (Actually, if B is further out than A, Root shrinks.
+   *   -----+-----------------+-----------------
+   *   C==R | C==F so NOOP    | shrink:F,grow:R   Petal is Focus and Root clicked? Grow the Root
+   *   -----+-----------------+-----------------
+   *
+   *  Notice that the Clicked node will always grow and the Focused will always shrink.
+   *  Sometimes the Root is either Clicked or the old Focus.  Sometimes it is neither.
+   */
+  initAnimationState(growMe, shrinkMe) {
+    // TODO
+    var tranx = this.animationState.tranx;
+    if (growMe.isRoot()) { // C==R,F!=R  (we know F!=R because if F==R then C==F which aborts above)
+      // The root is growing, so in lieu of growing the root Petal, grow the whole graph.
+      tranx.push(new FlowerResize(this, {x: 1, y: 1}));
+      tranx.push(new FlowerMove(this, Object.assign({}, deadCenter)));
+      // so shrinkMe can NOT be the root therefore
+      tranx.push(new PetalShrink(this, shrinkMe));
+    } else { // C!=R
+      var factor = .8;
+      if (shrinkMe.isRoot()) { // C!=R,F==R -- shrink the root and grow the clicked petal
+      // TODO in truth the further out the petal, the smaller the flower
+        tranx.push(new FlowerResize(this, {x: .5, y: .5}));
+        tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
+        tranx.push(new PetalGrow(this, growMe));
+      } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
+        tranx.push(new PetalShrink(this, {}, shrinkMe));
+        tranx.push(new PetalGrow(this, {}, growMe));
+        tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
+      }
+    }
+    /*
+    this.animationState = {changingPetals: []};
+    if (petal === this.state.currentPetal) {
+      this.animationState.changingPetals.push({petal: petal,
+                                               shrinking: true,
+                                               initialRadius: petal.radius});
+    } else {
+      this.animationState.changingPetals.push({petal: petal, growing: true});
+    }
+    */
   }
   shiftCenter(newCenter) {
-    window.shiftCenter = (window.shiftCenter || 0) + 1;
+    window.shiftCenter = (window.shiftCenter || 0) + 1; // REMOVE used for debugging
     let firstTime = (! this.state.center);
     let oldCenter = this.state.center || deadCenter;
     console.log("newCenter",newCenter);
@@ -424,7 +557,7 @@ class DiversusFlower extends Heir {
     let scale = newScale.split(' ');
     console.log("scale", scale);
     console.log("newCenter", newCenter);
-    let newState = {
+    let deltaState = {
       translateX: newCenter.cx,
       translateY: newCenter.cy,
       scaleX: scale[0],
@@ -433,10 +566,9 @@ class DiversusFlower extends Heir {
       oldCenter: oldCenter,
       newScale: newScale,
       oldScale: oldScale};
-    this.setState(newState);
-    console.log("shiftCenter", JSON.stringify(newState));
-    if (! firstTime) {
-      //this.scheduleAnimationLEGACY();
+    this.setState(deltaState);
+    console.log("shiftCenter", JSON.stringify(deltaState));
+    if (! firstTime) { // shiftCenter() gets called at flower init to initialize 'center'
       this.startAnimation();
     }
   }
@@ -455,8 +587,11 @@ class DiversusFlower extends Heir {
   //
   initAnimation() {
     if (MainLoop) {
+      this.animationState = {
+        tranx: []  // the transitions, in application precedence order
+      };
       MainLoop.
-        setUpdate(this.updateAnimation.bind(this)).
+        setUpdate(this.updateModel.bind(this)).
         setDraw(this.drawAnimation.bind(this)).
         setBegin(this.beginOfLoop.bind(this)).
         setEnd(this.endOfLoop.bind(this));
@@ -464,6 +599,10 @@ class DiversusFlower extends Heir {
       console.log('MainLoop unavailable');
     }
   }
+
+  /*
+    Calculate initial and the final values of things being animated for inbetweening by update.
+   */
   startAnimation() {
     if (MainLoop) {
       let newCenter = this.state.center || deadCenter;
@@ -482,9 +621,23 @@ class DiversusFlower extends Heir {
         console.log("renderCenterer() changing newScale from",newScale,"to '1 1'")
         newScale = "1 1";
       }
-      this.setState({finalCenter: newCenter,
-                     initialCenter: oldCenter});
-      this.animationStartTime = Date.now();
+      Object.assign(this.animationState, {
+        startTime: Date.now(),
+        initialCenter: oldCenter,
+        finalCenter: newCenter,
+        initialScale: oldScale,
+        finalScale: newScale
+      });
+      /*
+       * There are three possible situations
+       *    1) the flower is in the default position (and a petal has been clicked)
+       *       * the petal needs to grow from small to large
+       *    2) a petal is already being peeked at (and the root petal has been clicked)
+       *       * the petal needs to shrink from large to small
+       *    3) a petal is already being peeked at (and a 2nd petal has been clicked)
+       *       * the first petal needs to shrink from large to small
+       *       * the second petal needs to grow from small to large
+       */
       MainLoop.start();
     }
   }
@@ -495,18 +648,18 @@ class DiversusFlower extends Heir {
     }
   }
   /*
-    Here in updateAnimation() is where the in-betweening should happen for:
+    Here in updateModel() is where the in-betweening should happen for:
       1) SVG scale
       2) SVG translate
       3) petal-CIRCLE radius
       4) petel-CIRCLE center
     We do not call setState() from here though because that would trigger the drawing
-    which is the responsibility of updateAnimation().
+    which is the responsibility of updateModel().
 
     Here, though we must attend to the fraction of the
   */
-  updateAnimation(deltaSec) {
-    console.log(`updateAnimation(${deltaSec})`);
+  updateModel(deltaSec) {
+    console.log(`updateModel(${deltaSec})`);
     if (Date.now() - this.animationStartTime > (this.props.durationOfAnimation * 1000)) {
       // The animation duration has been exceeded, so stop.
       this.stopAnimation();
@@ -523,7 +676,7 @@ class DiversusFlower extends Heir {
    * beginOfLoop() always runs exactly once per frame.
    */
   beginOfLoop() {
-    console.log('beginAnimation');
+    console.log('beginOfLoop');
   }
   /*
     endOfLoop() always runs exactly once per frame.
@@ -534,10 +687,6 @@ class DiversusFlower extends Heir {
   }
   /* END OF THE ANIMATION */
 
-  scheduleAnimationLEGACY() {
-    // wait 30msec so React has a chance to put the animateTransform elems into the svg
-    setTimeout(() => this.triggerAnimation('animateTransform'), 30);
-  }
   renderCenterer() {
     let newCenter = this.state.center || deadCenter;
     let oldCenter = this.state.oldCenter || deadCenter;
@@ -588,20 +737,6 @@ class DiversusFlower extends Heir {
            additive: "sum",
            repeatCount: "0"})
     ];
-    
-  }
-  triggerAnimation(selector) {
-    let anims = document.querySelectorAll(selector);
-    //console.log("anims", anims);
-    anims.forEach((anim) => {
-      console.log('beginElement()',anim);
-      anim.beginElement();
-    });
-    return;
-    for (var i=0; i < anims.length; i++) {
-      console.log('beginElement()',anims[i]);
-      anims[i].beginElement();
-    }
   }
   calcRadii(centralRadius) {
     let maxFrondLength = 50;
@@ -668,27 +803,51 @@ class DiversusFlower extends Heir {
     console.log('calling peekAtPetal() from callOnPetalClick()');
     //this.peekAtPetal(petal);
   }
-  XXXXpeekPetal(peekedPetal) {
-    /*
-      Purpose: Animate the growing of the peekedPetal and slide the whole svg
-        to a center between the rootPetal and this peekedPetal
-    */
-    this.setState({'center': {cx: 100, cy:200}})
+  registerPetal(petal) {
+    this.petalByKey[petal.getKey()] = petal;
+  }
+  unregisterPetal(petal) {
+    delete this.petalByKey[petal.getKey()];
+  }
+  getPetalByKey(key) {
+    return this.petalByKey[key];
+  }
+  getRootKey() {
+    return this.state.rootArgs.key;
+  }
+  getRootPetal() {
+    return this.petalByKey(the.getRootKey());
+  }
+  getFocusedPetal() {
+    return this.getPetalByKey(this.getFocusedPetalKey());
+  }
+  getFocusedPetalKey() {
+    return this.focusedPetalKey;
+  }
+  setFocusedPetalKey(key) {
+    this.focusedPetalKey = key;
+  }
+  setFocusedPetal(petal) {
+    this.setFocusedPetalKey(petal.getKey());
+    console.info(`setFocusedPetal(${petal.getKey()})`+(petal.isRoot() ? ' ROOT' : ''));
   }
   setRootPetal(args) {
+    let key = getRandomId('p'); // unique!
     let rootArgs = {
       relPos: null, // normally a number, null signifies the root petal
       orderIdx: 0,            // zero for the central node?
-      key: getRandomId('p'),  // unique!
+      key: key,
+      myKey: key, // redundant because children can not access their own key (wtf)
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
-      fill: 'yellow'
-      //flower: this
+      fill: 'yellow',
+      isRoot: true
     };
     for (let [k, v] of Object.entries(args)) {
       rootArgs[k] = v;
     }
     this.setState({'rootArgs': rootArgs})
+    this.setFocusedPetalKey(rootArgs.key);
   }
   // https://codeburst.io/4-four-ways-to-style-react-components-ac6f323da822
   // https://www.sarasoueidan.com/blog/svg-coordinate-systems/
