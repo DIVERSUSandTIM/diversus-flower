@@ -269,6 +269,18 @@ class AnimationTransformer {
   constructor(flower, kwargs, ...ignore) {
     this.flower = flower;
     this.kwargs = kwargs;
+    this.durationSec = this.kwargs.duration || this.flower.props.durationOfAnimation;
+  }
+  update(deltaMsec) {
+    console.error(this.constructor.name, "needs update() implemented");
+    return true;
+  }
+  draw(interProp) {
+    console.error(this.constructor.name, "needs draw() implemented");
+    return true;
+  }
+  toString() {
+    return this.constructor.name;
   }
 }
 /**
@@ -280,28 +292,104 @@ class FlowerTransformer extends AnimationTransformer {
  * Transform the flower from its current scale to a target scale.
  */
 class FlowerResize extends FlowerTransformer {
+  constructor(flower, kwargs) {
+    super(flower, kwargs);
+    this.finalScale = this.kwargs.finalScale;  // comparison with initialScale establishes the range
+    console.log(".scale values need proper values");
+                                                                                             
+    this.scale = this.kwargs.scale; // 'current' scale to be interpolated with lastScale     
+                                                                                             
+    this.initialScale = this.scale;  // the starting scale to be compared with finalScale
+    //this.finalScale = this.kwargs.finalScale; // the terminal scale compared to initialScale gives range
+    this.lastScale = this.scale; // the last amount drawn
+    this.scaleTravel = this.finalScale - this.initialScale;
+    this.scaleTravelPerMsec = this.scaleTravel / this.durationSec / 1000;
+  }
+  update(deltaMsec) {
+    this.lastScale = this.scale;
+    this.scale += this.scaleTravelPerMsec * deltaMsec;
+  }
+  draw(interProp){
+    let scale = this.lastScale + (this.scale - this.lastScale) * interProp;
+    let delta = {scaleX: scale, scaleY: scale};
+    this.flower.setState(delta);
+    return delta;
+  }
 }
 /**
  * Transform the center of the flower from its current position to a target position.
  */
 class FlowerMove extends FlowerTransformer {
-}
-class PetalTransformer extends AnimationTransformer {
-  constructor(flower, kwargs, petal, ...ignore) {
+  constructor(flower, kwargs) {
     super(flower, kwargs);
-    this.petal = petal;
+    let flSt = this.flower.state;
+    this.center = {cx: flSt.translateX, cy: flSt.translateY};
+    this.initialCenter = Object.assign({}, this.center);  // compared with finalCent
+    this.lastCenter = Object.assign({}, this.center); // the last value drawn
+    this.finalCenter = Object.assign({}, this.kwargs); // the last value drawn
+    this.travel = {dx: this.finalCenter.cx - this.initialCenter.cx,
+                   dy: this.finalCenter.cy - this.initialCenter.cy};
+    this.travelPerMsec = {vx: this.travel.dx / this.durationSec / 1000,
+                          vy: this.travel.dy / this.durationSec / 1000};
+  }
+  update(deltaMsec) {
+    this.lastCenter = Object.assign({}, this.center);
+    this.center = {cx: this.center.cx + this.travelPerMsec.vx * deltaMsec,
+                   cy: this.center.cy + this.travelPerMsec.vy * deltaMsec};
+  }
+  draw(interProp) {
+    let delta = {translateX: this.lastCenter.cx + (this.center.cx - this.lastCenter.cx) * interProp,
+                 translateY: this.lastCenter.cx + (this.center.cx - this.lastCenter.cy) * interProp};
+    this.flower.setState(delta);
+    return delta;
   }
 }
 
 /**
+ * Handle shrinking or growing a petal depending on the kwargs.scaleFactor
+ */
+class PetalTransformer extends AnimationTransformer {
+  constructor(flower, kwargs, petal, ...ignore) {
+    super(flower, kwargs);
+    this.petal = petal;
+    let {petalRadius, cx, cy} = this.petal.state;
+                                                                        
+    // REVIEW is all this stuff well grounded???                        
+    this.initialRadius = petalRadius;
+    this.initialCX = cx;
+    this.initialCY = cy;
+    this.finalRadius = this.initialRadius * kwargs.scaleFactor;
+    this.lastRadius = this.initialRadius;
+    this.radiusTravel = this.finalRadius - this.initialRadius;
+    this.radiusTravelPerMsec = this.radiusTravel / this.durationSec / 1000;
+                                                                        
+  }
+  update(deltaMsec) {
+    this.lastRadius = this.radius;
+    this.radius += this.radiusTravelPerMsec * deltaMsec;
+  }
+  draw(interProp) {
+    let radius = this.lastRadius + (this.radius - this.lastRadius) * interProp;
+    let delta = {r: radius};
+    this.petal.setState(delta);
+    return delta;
+  }
+}
+/**
  * Shrinks a Petal.
  */
 class PetalShrink extends PetalTransformer {
+  constructor(flower, kwargs, shrinkPetal) {
+    super(flower, {scaleFactor: .5}, shrinkPetal); // TODO get scaleFactor from outside   
+  }
 }
 /**
  * Grows a Petal.
  */
 class PetalGrow extends PetalTransformer {
+  constructor(flower, kwargs, growPetal) {
+    super(flower, {scaleFactor: 2}, growPetal); // TODO get scaleFactor from outside   
+  }
 }
 
 
@@ -483,6 +571,7 @@ class DiversusFlower extends Heir {
     }
     */
     this.initAnimationState(clickedPetal, this.getFocusedPetal());
+    this.startAnimation();
     // REVIEW When should the clickedPetal become the focusedPetal?
     //   Either immediately (as implemented here) or after the animation is done.
     //   Immediately is perhaps best because then more clicks can happen on nodes
@@ -518,23 +607,25 @@ class DiversusFlower extends Heir {
     var tranx = this.animationState.tranx;
     if (growMe.isRoot()) { // C==R,F!=R  (we know F!=R because if F==R then C==F which aborts above)
       // The root is growing, so in lieu of growing the root Petal, grow the whole graph.
-      tranx.push(new FlowerResize(this, {x: 1, y: 1}));
-      tranx.push(new FlowerMove(this, Object.assign({}, deadCenter)));
+      tranx.add(new FlowerResize(this, {scale: this.state.scaleX, finalScale:1}));
+      tranx.add(new FlowerMove(this, Object.assign({}, deadCenter)));
       // so shrinkMe can NOT be the root therefore
-      tranx.push(new PetalShrink(this, shrinkMe));
+      tranx.add(new PetalShrink(this, {}, shrinkMe));
     } else { // C!=R
       var factor = .8;
       if (shrinkMe.isRoot()) { // C!=R,F==R -- shrink the root and grow the clicked petal
-      // TODO in truth the further out the petal, the smaller the flower
-        tranx.push(new FlowerResize(this, {x: .5, y: .5}));
-        tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
-        tranx.push(new PetalGrow(this, growMe));
+        // TODO in truth the further out the petal, the smaller the flower
+        tranx.add(new FlowerResize(this, {scale: this.state.scaleX, finalScale:.5}));
+        tranx.add(new FlowerMove(this, growMe.getCenter(factor)));
+        tranx.add(new PetalGrow(this, {}, growMe));
       } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
-        tranx.push(new PetalShrink(this, {}, shrinkMe));
-        tranx.push(new PetalGrow(this, {}, growMe));
-        tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
+        tranx.add(new PetalShrink(this, {}, shrinkMe));
+        tranx.add(new PetalGrow(this, {}, growMe));
+        tranx.add(new FlowerMove(this, growMe.getCenter(factor)));
       }
     }
+    console.log("initAnimationState");
+    console.log(tranx);
     /*
     this.animationState = {changingPetals: []};
     if (petal === this.state.currentPetal) {
@@ -587,24 +678,28 @@ class DiversusFlower extends Heir {
   //
   initAnimation() {
     if (MainLoop) {
-      this.animationState = {
-        tranx: []  // the transitions, in application precedence order
-      };
+      this.initializeAnimationState();
       MainLoop.
-        setUpdate(this.updateModel.bind(this)).
-        setDraw(this.drawAnimation.bind(this)).
+        setUpdate(this.updateAnimationTransformers.bind(this)).
+        setDraw(this.drawAnimationTransformers.bind(this)).
         setBegin(this.beginOfLoop.bind(this)).
         setEnd(this.endOfLoop.bind(this));
     } else {
       console.log('MainLoop unavailable');
     }
   }
-
+  initializeAnimationState() {
+      this.animationState = {
+        tranx: new Set(),  // the transitions, in application precedence order
+        rmTranx1: new Set() // completed transitions are queued here for removal at endOfLoop()
+      };
+  }
   /*
     Calculate initial and the final values of things being animated for inbetweening by update.
    */
   startAnimation() {
     if (MainLoop) {
+      /*
       let newCenter = this.state.center || deadCenter;
       let oldCenter = this.state.oldCenter || deadCenter;
       if (JSON.stringify(newCenter) == JSON.stringify(oldCenter)) {
@@ -628,6 +723,7 @@ class DiversusFlower extends Heir {
         initialScale: oldScale,
         finalScale: newScale
       });
+      */
       /*
        * There are three possible situations
        *    1) the flower is in the default position (and a petal has been clicked)
@@ -638,12 +734,16 @@ class DiversusFlower extends Heir {
        *       * the first petal needs to shrink from large to small
        *       * the second petal needs to grow from small to large
        */
+      this.animationState.startTime = Date.now();
+      this.animationState.durationMsec = this.props.durationOfAnimation * 1000;
+      console.log('MainLoop.start()')
       MainLoop.start();
     }
   }
   stopAnimation() {
     console.log('stopAnimation()');
     if (MainLoop) {
+      this.initializeAnimationState();
       MainLoop.stop();
     }
   }
@@ -658,25 +758,51 @@ class DiversusFlower extends Heir {
 
     Here, though we must attend to the fraction of the
   */
-  updateModel(deltaSec) {
-    console.log(`updateModel(${deltaSec})`);
-    if (Date.now() - this.animationStartTime > (this.props.durationOfAnimation * 1000)) {
+  updateAnimationTransformers(deltaSec) {
+    console.log(`updateAnimationTransformers(${deltaSec})`);
+    let elapsed = Date.now() - this.animationState.startTime;
+    let animationBudget = this.animationState.durationMsec;
+    let tranx = this.animationState.tranx;
+    let animTran;
+    let rmTranx1 = this.animationState.rmTranx1;
+
+    console.log(`${elapsed} msec > ${animationBudget} msec   numAnimTran: ${tranx.size}`);
+    if (elapsed > animationBudget || tranx.size == 0) {
       // The animation duration has been exceeded, so stop.
       this.stopAnimation();
+    }
+    // service each AnimationTransformer, calling its update() and recording those which are done
+    tranx.forEach((animTran) => {
+      if (animTran.update(deltaSec)) {
+        rmTranx1.add(animTran); // just stash a reference in rmTranx1 for removal in endOfLoop()
+      }
+    })
+    return;
+    for (var i = 0; i < tranx.length; i++) {
+      animTran = tranx[i];
+      if (animTran.update(deltaSec)) {
+        rmTranx1.push(i+1); // if update returns true, queue that AnimationTransformer for removal
+      }
     }
   }
   /*
      To play nicely with React, drawAnimation() is where the calls to setState should happen
      since they trigger the actual rendering.
   */
-  drawAnimation(interpolationPercentage) {
-    console.log(`drawAnimation(${interpolationPercentage})`)
+  drawAnimationTransformers(interProp) {
+    console.log(`drawAnimation(${interProp})`)
+    let tranx = this.animationState.tranx;
+    // service each AnimationTransformer, calling its update() and recording those which are done
+    tranx.forEach(function(animTran){
+      var delta = animTran.draw(interProp);
+      console.log('drawing', animTran.toString(), interProp, delta);
+    }, this)
   }
   /*
    * beginOfLoop() always runs exactly once per frame.
    */
   beginOfLoop() {
-    console.log('beginOfLoop');
+    console.group('beginOfLoop');
   }
   /*
     endOfLoop() always runs exactly once per frame.
@@ -684,6 +810,20 @@ class DiversusFlower extends Heir {
   endOfLoop() {
     // REVIEW should should we do a final setState here to ensure proper resting scale and position?
     console.log('endOfLoop()');
+    let tranx = this.animationState.tranx;
+    let rmTranx1 = this.animationState.rmTranx1;
+    // remove AnimationTransformers which are done by working back from the end of tranx
+    rmTranx1.forEach((rmTran) => {
+      tranx.delete(rmTran);
+      console.info(`rm ${rmTran} because it is done or unimplemented`);
+    });
+    /*
+    while (false && rmIdx1 = rmTranx1.pop()) {
+      var kilt = tranx.splice(rmIdx1-1, 1); // we added a +1 to rmIdx1 so we could use while()
+      console.info(`rm ${kilt[0]} because it is done or unimplemented`);
+    }
+    */
+    console.groupEnd();
   }
   /* END OF THE ANIMATION */
 
@@ -778,7 +918,7 @@ class DiversusFlower extends Heir {
                    translateY: 0,
                    frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
     console.log('calling shiftCenter() from componentWillMount()');
-    this.shiftCenter(deadCenter);
+    //this.shiftCenter(deadCenter);
   }
   componentDidMount() {
     if (this.props.demoMode) {
@@ -891,7 +1031,7 @@ DiversusFlower.propTypes = {
 DiversusFlower.defaultProps = {
   velocityOfScale: .333,       // 1/3 ie full scale in three seconds
   velocityOfTranslation:  33, // full translation in 3 seconds
-  durationOfAnimation: 1,     // 1 seconds
+  durationOfAnimation: .8,     // 1 seconds
   onPeekTranslateDuration: "1.5s",
   onPeekScaleTo: ".5 .5",
   onPeekScaleDuration: ".5s",
