@@ -295,12 +295,8 @@ class FlowerResize extends FlowerTransformer {
   constructor(flower, kwargs) {
     super(flower, kwargs);
     this.finalScale = this.kwargs.finalScale;  // comparison with initialScale establishes the range
-    console.log(".scale values need proper values");
-                                                                                             
-    this.scale = this.kwargs.scale; // 'current' scale to be interpolated with lastScale     
-                                                                                             
+    this.scale = this.kwargs.scale; // 'current' scale to be interpolated with lastScale
     this.initialScale = this.scale;  // the starting scale to be compared with finalScale
-    //this.finalScale = this.kwargs.finalScale; // the terminal scale compared to initialScale gives range
     this.lastScale = this.scale; // the last amount drawn
     this.scaleTravel = this.finalScale - this.initialScale;
     this.scaleTravelPerMsec = this.scaleTravel / this.durationSec / 1000;
@@ -759,14 +755,13 @@ class DiversusFlower extends Heir {
     Here, though we must attend to the fraction of the
   */
   updateAnimationTransformers(deltaSec) {
-    console.log(`updateAnimationTransformers(${deltaSec})`);
+    //console.log(`updateAnimationTransformers(${deltaSec})`);
     let elapsed = Date.now() - this.animationState.startTime;
     let animationBudget = this.animationState.durationMsec;
     let tranx = this.animationState.tranx;
-    let animTran;
     let rmTranx1 = this.animationState.rmTranx1;
 
-    console.log(`${elapsed} msec > ${animationBudget} msec   numAnimTran: ${tranx.size}`);
+    //console.log(`${elapsed} msec > ${animationBudget} msec   numAnimTran: ${tranx.size}`);
     if (elapsed > animationBudget || tranx.size == 0) {
       // The animation duration has been exceeded, so stop.
       this.stopAnimation();
@@ -777,107 +772,52 @@ class DiversusFlower extends Heir {
         rmTranx1.add(animTran); // just stash a reference in rmTranx1 for removal in endOfLoop()
       }
     })
-    return;
-    for (var i = 0; i < tranx.length; i++) {
-      animTran = tranx[i];
-      if (animTran.update(deltaSec)) {
-        rmTranx1.push(i+1); // if update returns true, queue that AnimationTransformer for removal
-      }
-    }
   }
   /*
      To play nicely with React, drawAnimation() is where the calls to setState should happen
      since they trigger the actual rendering.
   */
   drawAnimationTransformers(interProp) {
-    console.log(`drawAnimation(${interProp})`)
+    //console.log(`drawAnimation(${interProp})`)
     let tranx = this.animationState.tranx;
     // service each AnimationTransformer, calling its update() and recording those which are done
     tranx.forEach(function(animTran){
       var delta = animTran.draw(interProp);
-      console.log('drawing', animTran.toString(), interProp, delta);
+      //console.log('drawing', animTran.toString(), interProp, delta);
     }, this)
   }
   /*
    * beginOfLoop() always runs exactly once per frame.
    */
   beginOfLoop() {
-    console.group('beginOfLoop');
+    //console.group('beginOfLoop');
   }
   /*
     endOfLoop() always runs exactly once per frame.
    */
-  endOfLoop() {
+  endOfLoop(fps, panic) {
     // REVIEW should should we do a final setState here to ensure proper resting scale and position?
-    console.log('endOfLoop()');
+    //console.log('endOfLoop()');
     let tranx = this.animationState.tranx;
     let rmTranx1 = this.animationState.rmTranx1;
     // remove AnimationTransformers which are done by working back from the end of tranx
-    rmTranx1.forEach((rmTran) => {
-      tranx.delete(rmTran);
-      console.info(`rm ${rmTran} because it is done or unimplemented`);
-    });
-    /*
-    while (false && rmIdx1 = rmTranx1.pop()) {
-      var kilt = tranx.splice(rmIdx1-1, 1); // we added a +1 to rmIdx1 so we could use while()
-      console.info(`rm ${kilt[0]} because it is done or unimplemented`);
+    if (rmTranx1.size) {
+      rmTranx1.forEach((rmTran) => {
+        tranx.delete(rmTran);
+        console.info(`rm ${rmTran} because it is done or unimplemented`);
+      });
     }
-    */
-    console.groupEnd();
+    console.log(fps,"FPS");
+    if (panic) {
+      var discardedTime = Math.round(MainLoop.resetFrameDelta());
+      console.warn("MainLoop panicked, probably because the browser tab was put in tthe background",
+                   `Discarding ${discardedTime}ms`);
+
+    }
+    //console.groupEnd();
   }
   /* END OF THE ANIMATION */
 
-  renderCenterer() {
-    let newCenter = this.state.center || deadCenter;
-    let oldCenter = this.state.oldCenter || deadCenter;
-    if (JSON.stringify(newCenter) == JSON.stringify(oldCenter)) {
-      return ([]);
-    }
-    let newCenterStr = (-1 * fix(newCenter.cx)) + ' ' + (-1 * fix(newCenter.cy));
-    let oldCenterStr = fix(oldCenter.cx) + ' ' + fix(oldCenter.cy);
-    console.log("renderCenterer()",oldCenterStr,"==>",newCenterStr);
-    let newScale = this.state.newScale ; //|| this.props.onPeekScaleTo;
-    let oldScale = this.state.oldScale || "1 1";
-    if (samePoint(newCenter,deadCenter)) {
-      console.log("renderCenterer() changing newScale from",newScale,"to '1 1'")
-      newScale = "1 1";
-    }
-    /*
-      We must trigger the animation for it to actually begin.
-      It runs fine the first time it is triggered because the begin="0s" attribute
-      tells it to run immediately.  The challenge is to get the animation to run
-      on subsequent occasions.  One way to do this would be to remove the animateTransform
-      element after it has done its work (when is that?) and then to insert a new one.
-
-        https://stackoverflow.com/a/22217506/1234699
-        https://developer.mozilla.org/en-US/docs/Web/API/SVGAnimationElement
-    */
-    // these animations are triggered by scheduleAnimation
-    return [
-      rce('animateTransform',
-          {attributeName: "transform",
-           key: "recenterFlower",
-           type: "translate",
-           from: oldCenterStr,
-           to: newCenterStr,
-           begin: "indefinite",
-           dur: this.props.onPeekTranslateDuration,
-           fill: "freeze",
-           //additive: "sum",
-           repeatCount: "0"}),
-      rce('animateTransform',
-          {attributeName: "transform",
-           key: "resizeFlower",
-           type: "scale",
-           from: oldScale,
-           to: newScale,
-           begin: "indefinite",
-           dur: this.props.onPeekScaleDuration,
-           fill: "freeze",
-           additive: "sum",
-           repeatCount: "0"})
-    ];
-  }
   calcRadii(centralRadius) {
     let maxFrondLength = 50;
     let radii = [centralRadius];
@@ -1007,8 +947,7 @@ class DiversusFlower extends Heir {
       [
         rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
         this.renderRootPetal(),
-        this.renderFronds(),
-        //this.renderCenterer()
+        this.renderFronds()
       ]
     );
     return svgElem;
