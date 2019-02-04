@@ -3,7 +3,6 @@
 /*  These are expected in the environment:
 import React from 'react';
 import PropTypes from 'prop-types';
-import * as d3 from 'd3';
 import Force from 'd3-force';
 import './styles.css';
 */
@@ -205,9 +204,6 @@ class Petal extends React.Component {
     }
     delta.isRoot = !!this.props.isRoot;
     this.setState(delta);
-    flower.nodes.push(delta);  // probably do not need DiversusFlower.petalsByKey and .nodes
-    //console.log("num nodes:",flower.nodes.length, delta)
-    //console.log("<Petal> state:", this.state, deltaState);
   }
   componentDidMount() {
     //var flower = this.getFlower();
@@ -398,43 +394,12 @@ class DiversusFlower extends Heir {
       fronds: [],
       petals: []
     };
-    this.nodes = [];
     this.petalByKey = {};
-    //this.prepareSimulation();
     this.initAnimation();
-  }
-  prepareSimulation() {
-    let flower = this;
-    let ticked = function() {
-      var u = d3.select('svg')
-          .selectAll('circle')
-          .data(flower.nodes);
-      u.enter(() => {alert('enter')}) // this method is called when a node enters the simulation
-//        .append('circle')
-        .attr('r', 5)
-        .merge(u)
-        .attr('cx', function(d) {
-          return d.cx
-        })
-        .attr('cy', function(d) {
-          return d.cy
-        })
-      u.exit().remove()
-    }
-
-    this.sim = d3.forceSimulation(flower.nodes)
-      //.force('collide', d3.forceCollide().radius(this.getPetalRadius.bind(this)).iterations(3))
-      .force('collide', d3.forceCollide().radius(function(){alert('boo')}))
-      .velocityDecay(0.2)
-      .force("x", d3.forceX().strength(0.002))
-      .force("y", d3.forceY().strength(0.002))
-      .force('center', d3.forceCenter(0, 0))
-      .on('tick', ticked)
   }
 
   getPetalRadius(petal) {
     return petal.petalRadius;
-    return this.nodes[petalIdx].petalRadius;
   }
   whoDad(aFrond) { // Fronds call this to know their Flower
     // Register Frond (aFrond) on their DiversusFlower (this) here, if needed
@@ -570,7 +535,7 @@ class DiversusFlower extends Heir {
     this.startAnimation();
     // REVIEW When should the clickedPetal become the focusedPetal?
     //   Either immediately (as implemented here) or after the animation is done.
-    //   Immediately is perhaps best because then more clicks can happen on nodes
+    //   Immediately is perhaps best because then more clicks can happen on petals
     //   while the animation is happening and then those can make sense too.
     this.setFocusedPetal(clickedPetal);
   }
