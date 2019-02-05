@@ -136,6 +136,15 @@ class Petal extends React.Component {
     //return !this.props.relPos;
     return !!this.state.isRoot; // force a boolean response
   }
+  getScaleFactorNatural() {
+    return this.state.naturalR / this.state.r ;
+    //return this.getFlower().getFocusedRadius(); / this.state.r;
+  }
+  getScaleFactorFocused() {
+    // by what factor should this be scaled to become the focused petal?
+    // It is currently this.state.radius
+    return 5 * this.getFlower().getFocusedRadius() / this.state.r;
+  }
   onClick(evt) {
     //evt.stopPropagation()
     //evt.preventDefault()
@@ -170,21 +179,6 @@ class Petal extends React.Component {
       args: frond.petals[this.props.orderIdx]
     }
   }
-  makePeekSized() {
-    if (this.isRoot()) {
-      console.log("this is the rootPetal, so skipping makePeekSized()");
-      return;
-    }
-    var flower = this.getFlower();
-    let {frondIdx, frond, args} = this.getTheGoods();
-    this.setState({targetRadius: flower.props.peekedRadius,
-                   naturalRadius: this.state.petalRadius,
-                   naturalCx: this.state.cx,
-                   naturalCy: this.state.cy});
-    flower.startAnimation();
-    //console.log('makePeekSized() args:',args);
-    //document.selectQuery()
-  }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
     let flower = this.getFlower();
@@ -192,7 +186,8 @@ class Petal extends React.Component {
     let centralRadius = flower.state.centralRadius;  // the radius of the central circle
     let delta = {} ;
     let petalRadius = flower.state.radii[orderIdx];
-    delta.petalRadius = petalRadius;
+    delta.r = petalRadius;
+    delta.naturalR = delta.r;
     if (this.props.relPos) {
       let angle = getAngle(this.props.relPos);
       let distFromFlowerCenter = flower.state.dists[orderIdx];
@@ -215,14 +210,16 @@ class Petal extends React.Component {
     let flower = this.getFlower();
     //console.log(this.props);
     const petalOpacity = flower.props.petalOpacity;
-    const {cx, cy, centralRadius, key} = this.state;
+    let {cx, cy, centralRadius, myKey, r} = this.state;
     const petalRadius = flower.state.radii[orderIdx];
+    r = (r === undefined) ? petalRadius : r;
     //console.log("Petal.render()", cx, cy, centralRadius, petalRadius);
     //let label = this.props.relPos.toString().substring(0,4);
-    let label = "d:" + Math.round(flower.state.dists[orderIdx]) + ";r:"+Math.round(petalRadius);
+    let label = "d:" + Math.round(flower.state.dists[orderIdx]) + ";r:"+Math.round(r);
     label = "" //+ key;
     let circleArgs = {cx:cx, cy:cy,
-                      r:petalRadius,
+                      r:r,
+                      id:myKey,
                       stroke:"black", opacity:petalOpacity, fill:fill};
     if (this.props.title) {
       circleArgs.title = this.props.title;
@@ -344,17 +341,19 @@ class PetalTransformer extends AnimationTransformer {
   constructor(flower, kwargs, petal, ...ignore) {
     super(flower, kwargs);
     this.petal = petal;
-    let {petalRadius, cx, cy} = this.petal.state;
+    let {r, cx, cy} = this.petal.state;
                                                                         
     // REVIEW is all this stuff well grounded???                        
-    this.initialRadius = petalRadius;
+    this.initialRadius = r;
+    this.radius = this.initialRadius;
     this.initialCX = cx;
     this.initialCY = cy;
     this.finalRadius = this.initialRadius * kwargs.scaleFactor;
-    this.lastRadius = this.initialRadius;
+    this.lastRadius  = this.initialRadius;
     this.radiusTravel = this.finalRadius - this.initialRadius;
     this.radiusTravelPerMsec = this.radiusTravel / this.durationSec / 1000;
-                                                                        
+
+    console.log(this);
   }
   update(deltaMsec) {
     this.lastRadius = this.radius;
@@ -372,7 +371,8 @@ class PetalTransformer extends AnimationTransformer {
  */
 class PetalShrink extends PetalTransformer {
   constructor(flower, kwargs, shrinkPetal) {
-    super(flower, {scaleFactor: .5}, shrinkPetal); // TODO get scaleFactor from outside   
+    // TODO get scaleFactor from outside   
+    super(flower, {scaleFactor: shrinkPetal.getScaleFactorNatural()}, shrinkPetal);
   }
 }
 /**
@@ -380,7 +380,8 @@ class PetalShrink extends PetalTransformer {
  */
 class PetalGrow extends PetalTransformer {
   constructor(flower, kwargs, growPetal) {
-    super(flower, {scaleFactor: 2}, growPetal); // TODO get scaleFactor from outside   
+    // TODO get scaleFactor from outside   
+    super(flower, {scaleFactor: growPetal.getScaleFactorFocused()}, growPetal);
   }
 }
 
@@ -748,7 +749,7 @@ class DiversusFlower extends Heir {
     // service each AnimationTransformer, calling its update() and recording those which are done
     tranx.forEach(function(animTran){
       var delta = animTran.draw(interProp);
-      //console.log('drawing', animTran.toString(), interProp, delta);
+      console.log('drawing', animTran.toString(), interProp, delta);
     }, this)
   }
   /*
@@ -810,7 +811,7 @@ class DiversusFlower extends Heir {
       Prepare the initial state of the flower, here doing whatever calcs
       should preceed render() and follow constructor()
     */
-    let centralRadius = this.props.proportionOfCenter * this.props.flowerMinDimension;
+    let centralRadius = this.props.proportionOfRoot * this.props.flowerMinDimension;
     console.log("setting centralRadius", centralRadius);
     this.setState({centralRadius: centralRadius});
     let radii = this.calcRadii(centralRadius);
@@ -847,6 +848,9 @@ class DiversusFlower extends Heir {
     }
     console.log('calling peekAtPetal() from callOnPetalClick()');
     //this.peekAtPetal(petal);
+  }
+  getFocusedRadius() {
+    return this.props.proportionOfFocused  * this.props.flowerMinDimension / 2;
   }
   registerPetal(petal) {
     this.petalByKey[petal.getKey()] = petal;
@@ -924,7 +928,7 @@ DiversusFlower.propTypes = {
   numberOfFronds: PropTypes.number.isRequired,
   packingOfPetals: PropTypes.number,
   petalOpacity: PropTypes.number,
-  proportionOfCenter: PropTypes.number.isRequired,
+  proportionOfRoot: PropTypes.number.isRequired,
   randomStreamInterval: PropTypes.number, // how many msec between addRandomPetal
   reticleRays: PropTypes.number,
   reticleRayLength: PropTypes.number,
@@ -946,7 +950,8 @@ DiversusFlower.defaultProps = {
   numberOfFronds: 7,  // 11
   packingOfPetals: 8,
   petalOpacity: 0.80,
-  proportionOfCenter: .10, // .30 times the flowerMinDimension this controls the radius of the root
+  proportionOfRoot: .10, // .30 times the flowerMinDimension this controls the radius of the root
+  proportionOfFocused: .9,
   randomStreamInterval: 1,
   reticleRays: 80,
   reticleRayLength: 90,
