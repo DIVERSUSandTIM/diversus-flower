@@ -453,7 +453,7 @@ class PetalTransformer extends AnimationTransformer {
       if (idx == 1) {
         this.contactPetal = this.flower.getRootPetal();
       } else {
-        this.contactPetal = this.flower.getPetalByKey(this.petal.getTheGoods().frond.petals[idx - 1].myKey);
+        this.contactPetal = this.flower.getPetalByKey(this.petal.getTheGoods().frond.petals[idx - 2].myKey);
       }
     }
     return this.contactPetal;
@@ -1079,11 +1079,11 @@ DiversusFlower.defaultProps = {
   fixedColorFronds: true,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
   maxRandomPetalCount: 50,
-  numberOfFronds: 7,  // 11
+  numberOfFronds: 11,
   packingOfPetals: 8,
   petalOpacity: 0.80,
-  proportionOfRoot: .10, // .30 times the flowerMinDimension this controls the radius of the root
-  proportionOfFocused: .9,
+  proportionOfRoot: .33, // .30 times the flowerMinDimension this controls the radius of the root
+  proportionOfFocused: .28,
   randomStreamInterval: 1,
   reticleRays: 80,
   reticleRayLength: 90,
