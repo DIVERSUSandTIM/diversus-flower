@@ -35,6 +35,14 @@ function getBinMid(idx, numberOfFronds) {
 function getAngle(relPos) {
   return (2 * Math.PI) * relPos - Math.PI/2;
 }
+function getContactPointOfCircleAtAngle(x, y, r, a) {
+  return {x: x + r * Math.cos(a),
+          y: y + r * Math.sin(a)};
+}
+function petalRelPosToFrondAngle(relPos, numberOfFronds) {
+  let [idx, frondRelPos] = petalRelPosToFrondLoc(relPos, numberOfFronds);
+  return getAngle(frondRelPos);
+}
 function getRandomColor() {
   var letters = '0123456789ABCDEF';
   var color = '#';
@@ -47,6 +55,9 @@ function getRandomId(prefix) {
   let max = 10000000000;
   prefix = prefix || 'id';
   return prefix + Math.floor(Math.random() * Math.floor(max));
+}
+function distance(x, y) {
+  return Math.sqrt(x*x + y*y);
 }
 function calcRadiusOfPackedCircles(centralRadius, numPacked) {
   /*
@@ -136,6 +147,10 @@ class Petal extends React.Component {
     //return !this.props.relPos;
     return !!this.state.isRoot; // force a boolean response
   }
+  isFocused() {
+    let flower = this.getFlower();
+    return flower.getFocusedPetal() === this;
+  }
   getScaleFactorNatural() {
     return this.state.naturalR / this.state.r ;
     //return this.getFlower().getFocusedRadius(); / this.state.r;
@@ -168,6 +183,23 @@ class Petal extends React.Component {
     factor = (factor) && factor || 1;
     return {cx: this.state.cx * factor, cy: this.state.cy * factor};
   }
+  /**
+   * If the petal is being animated return its instantaneous center.  Note that this.state.cx and .cy are only statically true.
+   *
+   * There is a need for an instantaneousCenter whose updating by AnimationTransformers does not affect this.state because
+   * React .render() is too asynchronous to be reliable for animations.
+   */
+  getInstantaneousXYR() {
+    if (this.instantaneousXYR) {
+      return Object.assign({}, this.instantaneousXYR);
+    } else {
+      return {cx: this.state.cx, cy: this.state.cy, r: this.state.r};
+    }
+  }
+  getContactPointAtAngle(angle) {
+    let cntr = this.getInstantaneousXYR();
+    return getContactPointOfCircleAtAngle(cntr.cx, cntr.cy, cntr.r, angle);
+  }
   getTheGoods() {
     let flower = this.getFlower();
     // FIXME Is there a better way to get the frondIdx?  Put it on the Petal.props?
@@ -184,21 +216,23 @@ class Petal extends React.Component {
     let flower = this.getFlower();
     let orderIdx = this.props.orderIdx || 0;
     let centralRadius = flower.state.centralRadius;  // the radius of the central circle
-    let delta = {} ;
+    let adjusted = {} ;
     let petalRadius = flower.state.radii[orderIdx];
-    delta.r = petalRadius;
-    delta.naturalR = delta.r;
+    adjusted.r = petalRadius;
+    adjusted.naturalR = adjusted.r;
     if (this.props.relPos) {
       let angle = getAngle(this.props.relPos);
       let distFromFlowerCenter = flower.state.dists[orderIdx];
-      delta.cx = (Math.cos(angle) * (distFromFlowerCenter));
-      delta.cy = (Math.sin(angle) * (distFromFlowerCenter));
+      adjusted.cx = (Math.cos(angle) * (distFromFlowerCenter));
+      adjusted.cy = (Math.sin(angle) * (distFromFlowerCenter));
     } else {
-      delta.cx = 0;
-      delta.cy = 0;
+      adjusted.cx = 0;
+      adjusted.cy = 0;
     }
-    delta.isRoot = !!this.props.isRoot;
-    this.setState(delta);
+    adjusted.naturalCenter = {cx: adjusted.cx, cy: adjusted.cy};
+    adjusted.frondAngle = petalRelPosToFrondAngle(this.props.relPos, flower.props.numberOfFronds);
+    adjusted.isRoot = !!this.props.isRoot;
+    this.setState(adjusted);
   }
   componentDidMount() {
     //var flower = this.getFlower();
@@ -208,15 +242,10 @@ class Petal extends React.Component {
   render() {
     let {fill, orderIdx} = this.props;
     let flower = this.getFlower();
-    //console.log(this.props);
     const petalOpacity = flower.props.petalOpacity;
     let {cx, cy, centralRadius, myKey, r} = this.state;
     const petalRadius = flower.state.radii[orderIdx];
     r = (r === undefined) ? petalRadius : r;
-    //console.log("Petal.render()", cx, cy, centralRadius, petalRadius);
-    //let label = this.props.relPos.toString().substring(0,4);
-    let label = "d:" + Math.round(flower.state.dists[orderIdx]) + ";r:"+Math.round(r);
-    label = "" //+ key;
     let circleArgs = {cx:cx, cy:cy,
                       r:r,
                       id:myKey,
@@ -263,6 +292,7 @@ class AnimationTransformer {
     this.flower = flower;
     this.kwargs = kwargs;
     this.durationSec = this.kwargs.duration || this.flower.props.durationOfAnimation;
+    this.flowerElem = ReactDOM.findDOMNode(flower);
   }
   update(deltaMsec) {
     console.error(this.constructor.name, "needs update() implemented");
@@ -275,11 +305,39 @@ class AnimationTransformer {
   toString() {
     return this.constructor.name;
   }
+  setState(stateChanges) {
+    this.targetComponent.setState(stateChanges);
+  }
+  /**
+   * Perform a final draw operation with no interpolation so it terminates precisely.
+   */
+  finalize() {
+    let final = this.getFinalState();
+    this.setState(final);
+    return final;
+  }
+  /**
+   * Perform a simple rendering of attributes into a DOM element.
+   */
+  triggerRender(attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      this.targetElem.setAttribute(k,v);
+    }
+    this.renderCount = (this.renderCount) ? this.renderCount + 1 : 1;
+  }
 }
 /**
  * Methods common to AnimationTransformers which affect the SVG as a whole.
  */
 class FlowerTransformer extends AnimationTransformer {
+  constructor(flower, kwargs, ...ignore) {
+    super(flower, kwargs);
+    this.targetComponent = this.flower;
+    this.targetElem = this.flowerElem;
+  }
+  render(attrs) {
+    super.render(attrs, this.flowerElem);
+  }
 }
 /**
  * Transform the flower from its current scale to a target scale.
@@ -300,9 +358,12 @@ class FlowerResize extends FlowerTransformer {
   }
   draw(interProp){
     let scale = this.lastScale + (this.scale - this.lastScale) * interProp;
-    let delta = {scaleX: scale, scaleY: scale};
-    this.flower.setState(delta);
-    return delta;
+    let attrs = {scaleX: scale, scaleY: scale};
+    this.triggerRender(attrs);
+    return attrs;
+  }
+  getFinalState() {
+    return {scaleX: this.finalScale, scaleY: this.finalScale};
   }
 }
 /**
@@ -327,10 +388,14 @@ class FlowerMove extends FlowerTransformer {
                    cy: this.center.cy + this.travelPerMsec.vy * deltaMsec};
   }
   draw(interProp) {
-    let delta = {translateX: this.lastCenter.cx + (this.center.cx - this.lastCenter.cx) * interProp,
-                 translateY: this.lastCenter.cx + (this.center.cx - this.lastCenter.cy) * interProp};
-    this.flower.setState(delta);
-    return delta;
+    let attrs;
+    attrs = {translateX: this.lastCenter.cx + (this.center.cx - this.lastCenter.cx) * interProp,
+             translateY: this.lastCenter.cy + (this.center.cy - this.lastCenter.cy) * interProp};
+    this.triggerRender(attrs);
+    return attrs;
+  }
+  getFinalState() {
+    return Object.assign({}, this.finalCenter);
   }
 }
 
@@ -342,28 +407,72 @@ class PetalTransformer extends AnimationTransformer {
     super(flower, kwargs);
     this.petal = petal;
     let {r, cx, cy} = this.petal.state;
-                                                                        
-    // REVIEW is all this stuff well grounded???                        
     this.initialRadius = r;
     this.radius = this.initialRadius;
-    this.initialCX = cx;
-    this.initialCY = cy;
     this.finalRadius = this.initialRadius * kwargs.scaleFactor;
     this.lastRadius  = this.initialRadius;
     this.radiusTravel = this.finalRadius - this.initialRadius;
     this.radiusTravelPerMsec = this.radiusTravel / this.durationSec / 1000;
+    this.contactPetal = this.getContactPetal();
 
+    let natCent = petal.state.naturalCenter;
+    this.initialCenter = {cx: cx, cy: cy};
+    this.center = Object.assign({}, this.initialCenter);
+
+    let angle = this.petal.state.frondAngle;
+    let finalDistanceFromFlowerCenter = distance(natCent.cx, natCent.cy) + this.radiusTravel;
+    console.warn(this.toString(),'.finalCenter is BS');
+    if (kwargs.finalCenter) {
+      this.finalCenter = Object.assign({}, kwargs.finalCenter);
+    } else {
+      this.finalCenter = {
+        cx: (Math.cos(angle) * finalDistanceFromFlowerCenter),
+        cy: (Math.sin(angle) * finalDistanceFromFlowerCenter)};
+    }
+    this.lastCenter = Object.assign({}, this.initialCenter);
+    this.centerTravel = {dx: this.finalCenter.cx - this.initialCenter.cx,
+                         dy: this.finalCenter.cy - this.initialCenter.cy};
+    this.centerTravelPerMsec = {vx: this.centerTravel.dx / this.durationSec / 1000,
+                                vy: this.centerTravel.dy / this.durationSec / 1000};
     console.log(this);
+    this.petalElem = ReactDOM.findDOMNode(petal);
+    this.targetComponent = this.petal;
+    this.targetElem = this.petalElem;
   }
   update(deltaMsec) {
     this.lastRadius = this.radius;
     this.radius += this.radiusTravelPerMsec * deltaMsec;
+    this.center.cx += this.centerTravelPerMsec.vx * deltaMsec;
+    this.center.cy += this.centerTravelPerMsec.vy * deltaMsec;
+  }
+  getContactPetal() {
+    let idx = this.petal.props.orderIdx;
+    if (idx == 1) {
+      return this.flower.getRootPetal();
+    } else {
+      throw new Error("must implement getContactPetal() for idx > 1");
+    }
+  }
+  getContactPoint() {
+    return this.contactPetal.getContactPointAtAngle(this.petal.state.frondAngle);
   }
   draw(interProp) {
     let radius = this.lastRadius + (this.radius - this.lastRadius) * interProp;
-    let delta = {r: radius};
-    this.petal.setState(delta);
+    let contact = this.getContactPoint();
+    let cntr = getContactPointOfCircleAtAngle(contact.x, contact.y, radius, this.petal.state.frondAngle);
+    let delta = {
+      r: radius,
+      cx: cntr.x,
+      cy: cntr.y}
+    this.petal.intantaneousXYR = Object.assign({}, delta);
+    this.triggerRender(delta);
     return delta;
+  }
+  render(attrs) {
+    super.render(attrs, this.petalElem);
+  }
+  getFinalState() {
+    return {r: this.finalRadius, cx: this.finalCenter.cx, cy: this.finalCenter.cy};
   }
 }
 /**
@@ -372,7 +481,8 @@ class PetalTransformer extends AnimationTransformer {
 class PetalShrink extends PetalTransformer {
   constructor(flower, kwargs, shrinkPetal) {
     // TODO get scaleFactor from outside   
-    super(flower, {scaleFactor: shrinkPetal.getScaleFactorNatural()}, shrinkPetal);
+    super(flower, {scaleFactor: shrinkPetal.getScaleFactorNatural(),
+                   finalCenter: shrinkPetal.state.naturalCenter}, shrinkPetal);
   }
 }
 /**
@@ -421,7 +531,7 @@ class DiversusFlower extends Heir {
     console.log('startRandomStream');
     let dis = this;
     this.randomStreamTimer = setInterval( function(){dis.addRandomPetal()}, interval)
-    this.addRandomPetal(); // run one now!
+    //this.addRandomPetal(); // run one now!
   }
   stopRandomStream(){
     if (this.randomStreamTimer) {
@@ -450,6 +560,14 @@ class DiversusFlower extends Heir {
     if (this.randomPetalCount > this.props.maxRandomPetalCount) {
       this.stopRandomStream();
     }
+  }
+  startRandomClicking() {
+    interval = interval || this.props.demoClickingAfterMsec;
+    let dis = this;
+    this.randomClickingTimer = setInterval( function(){dis.clickRandomPetal()}, interval);
+  }
+  clickRandomPetal() {
+    // FIXME to be implemented                                                 
   }
   calcFrondRadius() {
     return calcRadiusOfPackedCircles(this.state.centralRadius,
@@ -583,7 +701,7 @@ class DiversusFlower extends Heir {
       } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
         tranx.add(new PetalShrink(this, {}, shrinkMe));
         tranx.add(new PetalGrow(this, {}, growMe));
-        tranx.add(new FlowerMove(this, growMe.getCenter(factor)));
+        tranx.add(new FlowerMove(this, growMe.getCenter(-1 * factor)));
       }
     }
     console.log("initAnimationState");
@@ -598,32 +716,6 @@ class DiversusFlower extends Heir {
       this.animationState.changingPetals.push({petal: petal, growing: true});
     }
     */
-  }
-  shiftCenter(newCenter) {
-    window.shiftCenter = (window.shiftCenter || 0) + 1; // REMOVE used for debugging
-    let firstTime = (! this.state.center);
-    let oldCenter = this.state.center || deadCenter;
-    console.log("newCenter",newCenter);
-    let newScale = samePoint(newCenter, deadCenter) ? "1 1" : this.props.onPeekScaleTo;
-    console.log("newScale", newScale);
-    let oldScale = (this.state.newScale) ? this.state.newScale : '1 1';
-    let scale = newScale.split(' ');
-    console.log("scale", scale);
-    console.log("newCenter", newCenter);
-    let deltaState = {
-      translateX: newCenter.cx,
-      translateY: newCenter.cy,
-      scaleX: scale[0],
-      scaleY: scale[1],
-      center: newCenter,
-      oldCenter: oldCenter,
-      newScale: newScale,
-      oldScale: oldScale};
-    this.setState(deltaState);
-    console.log("shiftCenter", JSON.stringify(deltaState));
-    if (! firstTime) { // shiftCenter() gets called at flower init to initialize 'center'
-      this.startAnimation();
-    }
   }
   /* BEGINING OF THE ANIMATION
 
@@ -705,8 +797,31 @@ class DiversusFlower extends Heir {
   stopAnimation() {
     console.log('stopAnimation()');
     if (MainLoop) {
-      this.initializeAnimationState();
+      this.purgeTranx();
       MainLoop.stop();
+      //this.initializeAnimationState();
+    }
+  }
+  purgeTranx(){
+    console.log('purgeTranx()',this.animationState.tranx.size)
+    this.animationState.tranx.forEach((animTran) => {
+      this.animationState.rmTranx1.add(animTran);
+    });
+    this.finalizeTranx();
+  }
+  finalizeTranx() {
+    let tranx = this.animationState.tranx;
+    let rmTranx1 = this.animationState.rmTranx1;
+    console.log('finalizeTranx()',rmTranx1.size)
+    // remove AnimationTransformers which are done by working back from the end of tranx
+    if (rmTranx1.size) {
+      rmTranx1.forEach((rmTran) => {
+        let finalized =  rmTran.finalize();
+        console.log('finalize', rmTran.toString(), finalized);
+        tranx.delete(rmTran);
+        rmTranx1.delete(rmTran);
+        console.info(`rm ${rmTran} because it is done or unimplemented`);
+      });
     }
   }
   /*
@@ -762,17 +877,8 @@ class DiversusFlower extends Heir {
     endOfLoop() always runs exactly once per frame.
    */
   endOfLoop(fps, panic) {
-    // REVIEW should should we do a final setState here to ensure proper resting scale and position?
     //console.log('endOfLoop()');
-    let tranx = this.animationState.tranx;
-    let rmTranx1 = this.animationState.rmTranx1;
-    // remove AnimationTransformers which are done by working back from the end of tranx
-    if (rmTranx1.size) {
-      rmTranx1.forEach((rmTran) => {
-        tranx.delete(rmTran);
-        console.info(`rm ${rmTran} because it is done or unimplemented`);
-      });
-    }
+    this.finalizeTranx();
     console.log(fps,"FPS");
     if (panic) {
       var discardedTime = Math.round(MainLoop.resetFrameDelta());
@@ -850,7 +956,7 @@ class DiversusFlower extends Heir {
     //this.peekAtPetal(petal);
   }
   getFocusedRadius() {
-    return this.props.proportionOfFocused  * this.props.flowerMinDimension / 2;
+    return this.props.proportionOfFocused  * this.props.flowerMinDimension / 3;
   }
   registerPetal(petal) {
     this.petalByKey[petal.getKey()] = petal;
@@ -865,9 +971,10 @@ class DiversusFlower extends Heir {
     return this.state.rootArgs.key;
   }
   getRootPetal() {
-    return this.petalByKey(the.getRootKey());
+    return this.petalByKey[this.getRootKey()];
   }
   getFocusedPetal() {
+    // return this.focusedPetal;
     return this.getPetalByKey(this.getFocusedPetalKey());
   }
   getFocusedPetalKey() {
@@ -878,7 +985,8 @@ class DiversusFlower extends Heir {
   }
   setFocusedPetal(petal) {
     this.setFocusedPetalKey(petal.getKey());
-    console.info(`setFocusedPetal(${petal.getKey()})`+(petal.isRoot() ? ' ROOT' : ''));
+    //this.focusedPetal = petal;
+    //console.info(`setFocusedPetal(${petal.getKey()})`+(petal.isRoot() ? ' ROOT' : ''));
   }
   setRootPetal(args) {
     let key = getRandomId('p'); // unique!
@@ -925,6 +1033,7 @@ class DiversusFlower extends Heir {
 
 DiversusFlower.propTypes = {
   demoMode: PropTypes.bool,
+  demoClickingAfterMsec: PropTypes.number,
   numberOfFronds: PropTypes.number.isRequired,
   packingOfPetals: PropTypes.number,
   petalOpacity: PropTypes.number,
@@ -944,6 +1053,7 @@ DiversusFlower.defaultProps = {
   onPeekScaleTo: ".5 .5",
   onPeekScaleDuration: ".5s",
   demoMode: false,
+  demoClickingAfterMsec: -1,  // meaning NEVER
   fixedColorFronds: true,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
   maxRandomPetalCount: 50,
