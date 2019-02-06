@@ -448,12 +448,15 @@ class PetalTransformer extends AnimationTransformer {
     this.center.cy += this.centerTravelPerMsec.vy * deltaMsec;
   }
   getContactPetal() {
-    let idx = this.petal.props.orderIdx;
-    if (idx == 1) {
-      return this.flower.getRootPetal();
-    } else {
-      throw new Error("must implement getContactPetal() for idx > 1");
+    if (! this.contactPetal) {
+      let idx = this.petal.props.orderIdx;
+      if (idx == 1) {
+        this.contactPetal = this.flower.getRootPetal();
+      } else {
+        this.contactPetal = this.flower.getPetalByKey(this.petal.getTheGoods().frond.petals[idx - 1].myKey);
+      }
     }
+    return this.contactPetal;
   }
   getContactPoint() {
     return this.contactPetal.getContactPointAtAngle(this.petal.state.frondAngle);
