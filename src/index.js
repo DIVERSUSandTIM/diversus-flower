@@ -158,7 +158,7 @@ class Petal extends React.Component {
   getScaleFactorFocused() {
     // by what factor should this be scaled to become the focused petal?
     // It is currently this.state.radius
-    return 5 * this.getFlower().getFocusedRadius() / this.state.r;
+    return 3 * this.getFlower().getFocusedRadius() / this.state.r;
   }
   onClick(evt) {
     //evt.stopPropagation()
