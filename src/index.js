@@ -360,6 +360,7 @@ class FlowerResize extends FlowerTransformer {
     let scale = this.lastScale + (this.scale - this.lastScale) * interProp;
     let attrs = {scaleX: scale, scaleY: scale};
     this.triggerRender(attrs);
+    this.transform = "scale (" + attrs.scaleX + " " + attrs.scaleY + ")";
     return attrs;
   }
   getFinalState() {
@@ -391,6 +392,7 @@ class FlowerMove extends FlowerTransformer {
     let attrs;
     attrs = {translateX: this.lastCenter.cx + (this.center.cx - this.lastCenter.cx) * interProp,
              translateY: this.lastCenter.cy + (this.center.cy - this.lastCenter.cy) * interProp};
+    this.transform = "translate("+ attrs.translateX + " " + attrs.translateY + ")";
     this.triggerRender(attrs);
     return attrs;
   }
@@ -473,6 +475,12 @@ class PetalTransformer extends AnimationTransformer {
   }
   getFinalState() {
     return {r: this.finalRadius, cx: this.finalCenter.cx, cy: this.finalCenter.cy};
+  }
+  xxfinalize() {
+    let retval = super.finalize();
+    delete this.petal.instantaneousXYR; // we are about to trigger setState so no need for the instantaneousXYR anymore
+    // REVIEW possible race condition when a whole frond is being shifted about
+    return retval;
   }
 }
 /**
@@ -862,10 +870,21 @@ class DiversusFlower extends Heir {
     //console.log(`drawAnimation(${interProp})`)
     let tranx = this.animationState.tranx;
     // service each AnimationTransformer, calling its update() and recording those which are done
+    let transforms = ["scale(.2 .2)" , "translate(30 30)"];
+    transforms = [];
+    let svg;
     tranx.forEach(function(animTran){
       var delta = animTran.draw(interProp);
+      if (animTran.transform) {
+        svg = animTran.flowerElem;
+        transforms.push(animTran.transform);
+      }
       console.log('drawing', animTran.toString(), interProp, delta);
-    }, this)
+    }, this);
+    if (svg) {
+      let transformation = transforms.join(' ');
+      svg.setAttribute('transform', transformation);
+    }
   }
   /*
    * beginOfLoop() always runs exactly once per frame.
