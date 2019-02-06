@@ -603,7 +603,7 @@ class DiversusFlower extends Heir {
       args.fillColor = aFrond.frondColor;
     }
     if (!args.myKey) {
-      args.key = args.myKey;
+      args.myKey = args.key;
     }
     aFrond.petals.push(args);
     this.state.fronds[idx] = aFrond;
