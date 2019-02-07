@@ -175,12 +175,25 @@ class Petal extends React.Component {
     return 3 * this.getFlower().getFocusedRadius() / this.state.r;
   }
   getBiggerSibling() {
-    return true
+    let frond = this.getFrond();
+    if (this.state.orderIdx > 1 ) {
+      var retval = this.getFlower().getPetalByKey(frond.petals[this.state.orderIdx - 2].myKey);
+      if (retval.state.orderIdx != this.state.orderIdx - 1) {
+        debugger
+      }
+      return retval;
+    }
   }
   getSmallerSibling() {
-    return true
+    let frond = this.getFrond();
+    if (this.state.orderIdx < frond.petals.length) {
+      var retval = this.getFlower().getPetalByKey(frond.petals[this.state.orderIdx].myKey);
+      if (retval.state.orderIdx != this.state.orderIdx + 1) {
+        debugger
+      }
+      return retval;
+    }
   }
-  
   onClick(evt) {
     //evt.stopPropagation()
     //evt.preventDefault()
@@ -733,52 +746,53 @@ class DiversusFlower extends Heir {
       tranx.push(new FlowerResize(this, {scale: this.state.scaleX, finalScale:1}));
       tranx.push(new FlowerMove(this, Object.assign({}, deadCenter)));
       // so shrinkMe can NOT be the root therefore
-      tranx.push(new PetalShrink(this, {}, shrinkMe));
+      //tranx.push(new PetalShrink(this, {}, shrinkMe));
+      this.addAnimTransFor(shrinkMe, PetalShrink);
     } else { // C!=R
       var factor = .8;
       if (shrinkMe.isRoot()) { // C!=R,F==R -- shrink the root and grow the clicked petal
         // TODO in truth the further out the petal, the smaller the flower
         tranx.push(new FlowerResize(this, {scale: this.state.scaleX, finalScale:.5}));
         tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
-        tranx.push(new PetalGrow(this, {governChildren: true}, growMe));
+        this.addAnimTransFor(growMe, PetalGrow);
+        //tranx.push(new PetalGrow(this, {governChildren: true}, growMe));
       } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
+        tranx.push(new FlowerMove(this, growMe.getCenter(-1 * factor)));
         if (shrinkMe.getTheGoods().frond.idx == growMe.getTheGoods().frond.idx) {
           console.log('same frond');
           growMeOnSameFrond = growMe;
           shrinkMeOnSameFrond = shrinkMe;
         }
-        this.addShrinkMe(shrinkMe, tranx, growMeOnSameFrond);
-        tranx.push(new PetalGrow(this, {}, growMe));
-        tranx.push(new FlowerMove(this, growMe.getCenter(-1 * factor)));
+        this.addAnimTransFor(shrinkMe, PetalShrink, growMeOnSameFrond);
+        this.addAnimTransFor(growMe, PetalGrow, shrinkMeOnSameFrond);
       }
     }
-
-    console.log("initAnimationState");
-    console.log(tranx);
-
-    /*
-    this.animationState = {changingPetals: []};
-    if (petal === this.state.currentPetal) {
-      this.animationState.changingPetals.push({petal: petal,
-                                               shrinking: true,
-                                               initialRadius: petal.radius});
-    } else {
-      this.animationState.changingPetals.push({petal: petal, growing: true});
-    }
-    */
   }
-  addShrinkMe(shrinkMe, tranx, growMeOnSameFrond) {
+  addAnimTransFor(mainPetal, PetalGrowOrShrink, otherPetalOnFrond) {
     var lilSib, bigSib;
-    var ps = new PetalShrink(this, {}, shrinkMe);
-    console.log("shrinkMe",shrinkMe)
-    if (bigSib = shrinkMe.getBiggerSibling()) {
-      //alert('bigSib')
+    // We add AnimationTransformers to tranx from the inside toward the outside of the flower
+    // FIXME there is some sort of problem when main and otherPetalOnFrond
+    var tranx = this.animationState.tranx;
+    if (bigSib = mainPetal.getBiggerSibling()) {
+      if (otherPetalOnFrond != bigSib) {
+        tranx.push(new PetalGrowOrShrink(this, {}, bigSib));
+      }
     }
-    tranx.push(ps);
-    if (lilSib = shrinkMe.getSmallerSibling()) {
-      //alert('lilSib')
+    tranx.push(new PetalGrowOrShrink(this, {}, mainPetal));
+    if (lilSib = mainPetal.getSmallerSibling()) {
+      if (otherPetalOnFrond != lilSib) {
+        tranx.push(new PetalGrowOrShrink(this, {}, lilSib));
+      }
+    }
+    return;
+    if (bigSib) {
+      alert(`mainPetal.orderIdx: ${mainPetal.state.orderIdx} has bigSib.borderIdx: ${bigSib.state.orderIdx}`)
+    }
+    if (lilSib) {
+      alert(`mainPetal.orderIdx: ${mainPetal.state.orderIdx} has lilSib.borderIdx: ${lilSib.state.orderIdx}`)
     }
   }
+
   /* BEGINING OF THE ANIMATION
 
     The animation of transitions is implemented with the help of this animation main loop:
