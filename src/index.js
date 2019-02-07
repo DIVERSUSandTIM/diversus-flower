@@ -1207,7 +1207,7 @@ DiversusFlower.defaultProps = {
   packingOfPetals: 8,
   petalOpacity: 0.80,
   proportionOfRoot: .33, // .30 times the flowerMinDimension this controls the radius of the root
-  proportionOfFocused: .28,
+  proportionOfFocused: .4,
   randomStreamInterval: 1,
   reticleRays: 80,
   reticleRayLength: 90,
