@@ -195,15 +195,16 @@ class Petal extends React.Component {
     }
   }
   onClick(evt) {
-    //evt.stopPropagation()
-    //evt.preventDefault()
+    evt.stopPropagation()
+    evt.preventDefault()
     this.callExternalClickHandlers(evt);
-    if (this.state.isTheFocus) {
+    if (this.isFocused()) {
+      console.log("this node is already the focus, ignoring click");
       // TODO deal with click vs double click
       // This is already the focused petal so there is no need for a transformation, so bail.
       return;
     }
-    console.log('calling peekAtPetal() from onClick()' + (this.isRoot() ? ' for root' : ''));
+    console.log('calling focusOnPetal() from onClick()' + (this.isRoot() ? ' for root' : ''));
     this.props.flower.focusOnPetal(this, evt.target);
   }
   callExternalClickHandlers(evt) {
@@ -695,7 +696,7 @@ class DiversusFlower extends Heir {
     return calcRadiusOfPackedCircles(centralRadius || this.state.centralRadius,
                                      this.props.numberOfFronds);
   }
-  getFocusedPetal() {
+  XXXgetFocusedPetal() {
     return this.state.focusedPetal;
   }
   focusOnPetal(clickedPetal, clickedCircle) {
@@ -1049,6 +1050,11 @@ class DiversusFlower extends Heir {
     if (this.props.demoMode) {
       this.startRandomStream()
     }
+    if (this.props.demoModeAfterSec > 0) {
+      setTimeout(() => {
+        this.startRandomStream();
+      }, this.props.demoModeAfterSec*1000)
+    }
   }
   setRootClickHandler(handler) {
     this.rootClickHandler = handler;
@@ -1096,8 +1102,17 @@ class DiversusFlower extends Heir {
   setFocusedPetalKey(key) {
     this.focusedPetalKey = key;
   }
+  unfocusOldFocusedPetal() {
+    if (this.focusedPetalKey) {
+      var oldFocus = this.getFocusedPetal();
+      delete oldFocus.isTheFocus;
+      delete this.focusedPetalKey;
+    }
+  }
   setFocusedPetal(petal) {
+    this.unfocusOldFocusedPetal();
     this.setFocusedPetalKey(petal.getKey());
+    petal.isTheFocus = true;
     //this.focusedPetal = petal;
     //console.info(`setFocusedPetal(${petal.getKey()})`+(petal.isRoot() ? ' ROOT' : ''));
   }
@@ -1166,6 +1181,7 @@ DiversusFlower.defaultProps = {
   onPeekScaleTo: ".5 .5",
   onPeekScaleDuration: ".5s",
   demoMode: false,
+  demoModeAfterSecs: -1,  // meaning NEVER
   demoClickingAfterMsec: -1,  // meaning NEVER
   fixedColorFronds: true,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
