@@ -587,6 +587,9 @@ class DiversusFlower extends Heir {
     interval = interval || this.props.randomStreamInterval;
     console.log('startRandomStream');
     let dis = this;
+    if (!this.getRootKey()) {  // if no root petal then add one
+      this.setRootPetal({fill:'red'})
+    }
     this.randomStreamTimer = setInterval( function(){dis.addRandomPetal()}, interval)
     //this.addRandomPetal(); // run one now!
   }
@@ -1025,6 +1028,9 @@ class DiversusFlower extends Heir {
     }
     return dists;
   }
+  getPetalCount() {
+    return this.state.petals.length;
+  }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
     /*
@@ -1050,10 +1056,16 @@ class DiversusFlower extends Heir {
     if (this.props.demoMode) {
       this.startRandomStream()
     }
-    if (this.props.demoModeAfterSec > 0) {
+    if (this.props.demoModeAfterNoDataSec > 0) {
+      console.log('preparing demoModeAfterNoDataSec', this.props.demoModeAfterNoDataSec);
       setTimeout(() => {
-        this.startRandomStream();
-      }, this.props.demoModeAfterSec*1000)
+        if (this.getPetalCount() == 0) {
+          console.log('no data, so demo mode');
+          this.startRandomStream();
+        } else {
+          console.log('data, so no demo mode');
+        }
+      }, this.props.demoModeAfterNoDataSec*1000)
     }
   }
   setRootClickHandler(handler) {
@@ -1087,6 +1099,9 @@ class DiversusFlower extends Heir {
     return this.petalByKey[key];
   }
   getRootKey() {
+    if (!this.state.rootArgs) {
+      return;
+    }
     return this.state.rootArgs.key;
   }
   getRootPetal() {
@@ -1181,7 +1196,7 @@ DiversusFlower.defaultProps = {
   onPeekScaleTo: ".5 .5",
   onPeekScaleDuration: ".5s",
   demoMode: false,
-  demoModeAfterSecs: -1,  // meaning NEVER
+  demoModeAfterNoDataSec: -1,  // meaning NEVER
   demoClickingAfterMsec: -1,  // meaning NEVER
   fixedColorFronds: true,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
