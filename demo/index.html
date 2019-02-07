@@ -34,12 +34,12 @@
     <script src="../src/index.js"></script>
     <script>
       window.do_it = function() {
-      var flowerArgs = {numberOfFronds:11,
-                        maxRandomPetalCount: 60,
+      var flowerArgs = {
+                        //maxRandomPetalCount: 60,
                         svgClassName: 'pretty-flower',
                         //demoMode: true,
                         demoModeAfterNoDataSec: 2,
-                        demoClickingAfterMsec: 30 // ie never
+                        demoClickingAfterMsec: 30
         };
         window.zeFlower = putDiversusFlowerInElemOrId('flowerPot',flowerArgs);
 //        window.zeFlower.setRootPetal({"fill": 'green', title: "root title here"});
