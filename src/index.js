@@ -487,15 +487,12 @@ class PetalTransformer extends AnimationTransformer {
     this.center.cy += this.centerTravelPerMsec.vy * deltaMsec;
   }
   getContactPetal() {
-    if (! this.contactPetal) {
-      let idx = this.petal.props.orderIdx;
-      if (idx == 1) {
-        this.contactPetal = this.flower.getRootPetal();
-      } else {
-        this.contactPetal = this.flower.getPetalByKey(this.petal.getTheGoods().frond.petals[idx - 2].myKey);
-      }
+    let idx = this.petal.props.orderIdx;
+    if (idx == 1) {
+      return this.flower.getRootPetal();
+    } else {
+      return this.petal.getBiggerSibling();
     }
-    return this.contactPetal;
   }
   getContactPoint() {
     return this.contactPetal.getContactPointAtAngle(this.petal.getFrond().angle);
@@ -508,7 +505,7 @@ class PetalTransformer extends AnimationTransformer {
       r: radius,
       cx: cntr.x,
       cy: cntr.y}
-    this.petal.intantaneousXYR = Object.assign({}, delta);
+    this.petal.instantaneousXYR = Object.assign({}, delta);
     this.triggerRender(delta);
     return delta;
   }
@@ -518,11 +515,20 @@ class PetalTransformer extends AnimationTransformer {
   getFinalState() {
     return {r: this.finalRadius, cx: this.finalCenter.cx, cy: this.finalCenter.cy};
   }
-  xxfinalize() {
+  finalize() {
     let retval = super.finalize();
+    console.warn('possibly too early deletion of instantaneousXYR');
     delete this.petal.instantaneousXYR; // we are about to trigger setState so no need for the instantaneousXYR anymore
     // REVIEW possible race condition when a whole frond is being shifted about
     return retval;
+  }
+}
+/**
+ * Slides petals around which need to move but not resize because of changes to bigger siblings.
+*/
+class PetalSlide extends PetalTransformer {
+  constructor(flower, kwargs, slidePetal) {
+    super(flower, {scaleFactor: 1}, slidePetal)
   }
 }
 /**
@@ -769,19 +775,31 @@ class DiversusFlower extends Heir {
     }
   }
   addAnimTransFor(mainPetal, PetalGrowOrShrink, otherPetalOnFrond) {
+    var scaleAdjacents = false;
+    var slideLittleSibs = true;
     var lilSib, bigSib;
     // We add AnimationTransformers to tranx from the inside toward the outside of the flower
     // FIXME there is some sort of problem when main and otherPetalOnFrond
     var tranx = this.animationState.tranx;
     if (bigSib = mainPetal.getBiggerSibling()) {
-      if (otherPetalOnFrond != bigSib) {
+      if (scaleAdjacents && otherPetalOnFrond != bigSib) {
         tranx.push(new PetalGrowOrShrink(this, {}, bigSib));
       }
     }
     tranx.push(new PetalGrowOrShrink(this, {}, mainPetal));
     if (lilSib = mainPetal.getSmallerSibling()) {
-      if (otherPetalOnFrond != lilSib) {
+      if (scaleAdjacents && otherPetalOnFrond != lilSib) {
         tranx.push(new PetalGrowOrShrink(this, {}, lilSib));
+      } else {
+        if (slideLittleSibs) {
+          tranx.push(new PetalSlide(this, {}, lilSib));
+        }
+      }
+    }
+    if (slideLittleSibs && lilSib) {
+      var littlerSib = lilSib;
+      while (littlerSib = littlerSib.getSmallerSibling()) {
+        tranx.push(new PetalSlide(this, {}, littlerSib))
       }
     }
     return;
