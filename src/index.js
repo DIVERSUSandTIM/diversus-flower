@@ -698,23 +698,24 @@ class DiversusFlower extends Heir {
     var tranx = this.animationState.tranx;
     if (growMe.isRoot()) { // C==R,F!=R  (we know F!=R because if F==R then C==F which aborts above)
       // The root is growing, so in lieu of growing the root Petal, grow the whole graph.
-      tranx.add(new FlowerResize(this, {scale: this.state.scaleX, finalScale:1}));
-      tranx.add(new FlowerMove(this, Object.assign({}, deadCenter)));
+      tranx.push(new FlowerResize(this, {scale: this.state.scaleX, finalScale:1}));
+      tranx.push(new FlowerMove(this, Object.assign({}, deadCenter)));
       // so shrinkMe can NOT be the root therefore
-      tranx.add(new PetalShrink(this, {}, shrinkMe));
+      tranx.push(new PetalShrink(this, {}, shrinkMe));
     } else { // C!=R
       var factor = .8;
       if (shrinkMe.isRoot()) { // C!=R,F==R -- shrink the root and grow the clicked petal
         // TODO in truth the further out the petal, the smaller the flower
-        tranx.add(new FlowerResize(this, {scale: this.state.scaleX, finalScale:.5}));
-        tranx.add(new FlowerMove(this, growMe.getCenter(factor)));
-        tranx.add(new PetalGrow(this, {}, growMe));
+        tranx.push(new FlowerResize(this, {scale: this.state.scaleX, finalScale:.5}));
+        tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
+        tranx.push(new PetalGrow(this, {}, growMe));
       } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
-        tranx.add(new PetalShrink(this, {}, shrinkMe));
-        tranx.add(new PetalGrow(this, {}, growMe));
-        tranx.add(new FlowerMove(this, growMe.getCenter(-1 * factor)));
+        tranx.push(new PetalShrink(this, {}, shrinkMe));
+        tranx.push(new PetalGrow(this, {}, growMe));
+        tranx.push(new FlowerMove(this, growMe.getCenter(-1 * factor)));
       }
     }
+    
     console.log("initAnimationState");
     console.log(tranx);
     /*
@@ -755,7 +756,7 @@ class DiversusFlower extends Heir {
   }
   initializeAnimationState() {
       this.animationState = {
-        tranx: new Set(),  // the transitions, in application precedence order
+        tranx: [],  // the transitions, in application precedence order
         rmTranx1: new Set() // completed transitions are queued here for removal at endOfLoop()
       };
   }
@@ -829,7 +830,15 @@ class DiversusFlower extends Heir {
       rmTranx1.forEach((rmTran) => {
         let finalized =  rmTran.finalize();
         console.log('finalize', rmTran.toString(), finalized);
-        tranx.delete(rmTran);
+        for (var idx = tranx.length - 1 ; idx > -1; idx--) {
+          var item = tranx[idx];
+          if (item === rmTran) {
+            if (item !== tranx.splice(idx,1)[0]) {
+              throw new Error(`${item} isnt ${rmTran} `);
+            }
+          }
+        }
+        //tranx.delete(rmTran);
         rmTranx1.delete(rmTran);
         console.info(`rm ${rmTran} because it is done or unimplemented`);
       });
