@@ -14,6 +14,20 @@ import './styles.css';
  *
  * This is an implementation of the graph visualization touring experience depicted here:
  *    https://vimeo.com/251879145
+ *
+ * Concepts:
+ *    petal -- a circle (even theRoot) positioned in a radiating flower-like arrangement
+ *    relPos -- is a number between 0 and 1 representing a position around the circle
+ *    frond -- one of the 'bins' around the circle with a sequence of ever-smaller petals
+ *    root -- the central petal
+ *    focused -- the petal (default theRoot) which is currently enlarged and roughly centered
+ *
+ * Dependencies
+ *    React -- Petal, DiversusFlower
+ *    MainLoop -- assists with timing of animation
+ *
+ * Animation Classes
+ *    AnimationTransformers -- the root of a tree of processors to update and draw animation operations
  */
 rce = React.createElement;
 
@@ -160,6 +174,13 @@ class Petal extends React.Component {
     // It is currently this.state.radius
     return 3 * this.getFlower().getFocusedRadius() / this.state.r;
   }
+  getBiggerSibling() {
+    return true
+  }
+  getSmallerSibling() {
+    return true
+  }
+  
   onClick(evt) {
     //evt.stopPropagation()
     //evt.preventDefault()
@@ -211,6 +232,9 @@ class Petal extends React.Component {
       args: frond.petals[this.props.orderIdx]
     }
   }
+  getFrond() {
+    return this.props.flower.state.fronds[this.state.idxOfFrond];
+  }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
     let flower = this.getFlower();
@@ -229,8 +253,10 @@ class Petal extends React.Component {
       adjusted.cx = 0;
       adjusted.cy = 0;
     }
+    let [idxOfFrond, relPosOfFrond] = petalRelPosToFrondLoc(this.props.relPos, flower.props.numberOfFronds);
     adjusted.naturalCenter = {cx: adjusted.cx, cy: adjusted.cy};
-    adjusted.frondAngle = petalRelPosToFrondAngle(this.props.relPos, flower.props.numberOfFronds);
+    adjusted.idxOfFrond = idxOfFrond;
+    adjusted.orderIdx = orderIdx  // TODO rename to idxInFrond
     adjusted.isRoot = !!this.props.isRoot;
     this.setState(adjusted);
   }
@@ -421,7 +447,7 @@ class PetalTransformer extends AnimationTransformer {
     this.initialCenter = {cx: cx, cy: cy};
     this.center = Object.assign({}, this.initialCenter);
 
-    let angle = this.petal.state.frondAngle;
+    let angle = this.petal.getFrond().angle;
     let finalDistanceFromFlowerCenter = distance(natCent.cx, natCent.cy) + this.radiusTravel;
     console.warn(this.toString(),'.finalCenter is BS');
     if (kwargs.finalCenter) {
@@ -459,12 +485,12 @@ class PetalTransformer extends AnimationTransformer {
     return this.contactPetal;
   }
   getContactPoint() {
-    return this.contactPetal.getContactPointAtAngle(this.petal.state.frondAngle);
+    return this.contactPetal.getContactPointAtAngle(this.petal.getFrond().angle);
   }
   draw(interProp) {
     let radius = this.lastRadius + (this.radius - this.lastRadius) * interProp;
     let contact = this.getContactPoint();
-    let cntr = getContactPointOfCircleAtAngle(contact.x, contact.y, radius, this.petal.state.frondAngle);
+    let cntr = getContactPointOfCircleAtAngle(contact.x, contact.y, radius, this.petal.getFrond().angle);
     let delta = {
       r: radius,
       cx: cntr.x,
@@ -584,21 +610,26 @@ class DiversusFlower extends Heir {
     return calcRadiusOfPackedCircles(this.state.centralRadius,
                                      this.props.numberOfFronds);
   }
-  getOrCreateFrond(relPos) {
-    let idx = getBinIdx(relPos, this.props.numberOfFronds);
+  getOrCreateFrondForPetalRelPos(petalRelPos) {
+    let idx = getBinIdx(petalRelPos, this.props.numberOfFronds);
     let frondRelPos = getBinMid(idx, this.props.numberOfFronds);
-    return this.state.fronds[idx] || {key: idx, relPos: frondRelPos, petals: []};
+    let frond = this.state.fronds[idx];
+    if (!frond) {
+      frond = {
+        key: idx,
+        relPos: frondRelPos,
+        angle: getAngle(frondRelPos),
+        frondColor: getRandomColor(),
+        petals: [],
+        radius: this.state.frondRadius
+      };
+    }
+    return frond ; //this.state.fronds[idx] || {key: idx, relPos: frondRelPos, petals: []};
   }
   addPetal(args) {
     let idx = getBinIdx(args.relPos, this.props.numberOfFronds);
     let frondRelPos = getBinMid(idx, this.props.numberOfFronds);
-    let aFrond = this.state.fronds[idx] || {
-      key: idx,
-      relPos: frondRelPos,
-      frondColor: getRandomColor(),
-      petals: [],
-      radius: this.state.frondRadius
-    };
+    let aFrond = this.getOrCreateFrondForPetalRelPos(args.relPos);
     if (this.props.fixedColorFronds) {
       args.fillColor = aFrond.frondColor;
     }
@@ -695,6 +726,7 @@ class DiversusFlower extends Heir {
    */
   initAnimationState(growMe, shrinkMe) {
     // TODO
+    var growMeOnSameFrond, shrinkMeOnSameFrond;
     var tranx = this.animationState.tranx;
     if (growMe.isRoot()) { // C==R,F!=R  (we know F!=R because if F==R then C==F which aborts above)
       // The root is growing, so in lieu of growing the root Petal, grow the whole graph.
@@ -708,16 +740,22 @@ class DiversusFlower extends Heir {
         // TODO in truth the further out the petal, the smaller the flower
         tranx.push(new FlowerResize(this, {scale: this.state.scaleX, finalScale:.5}));
         tranx.push(new FlowerMove(this, growMe.getCenter(factor)));
-        tranx.push(new PetalGrow(this, {}, growMe));
+        tranx.push(new PetalGrow(this, {governChildren: true}, growMe));
       } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
-        tranx.push(new PetalShrink(this, {}, shrinkMe));
+        if (shrinkMe.getTheGoods().frond.idx == growMe.getTheGoods().frond.idx) {
+          console.log('same frond');
+          growMeOnSameFrond = growMe;
+          shrinkMeOnSameFrond = shrinkMe;
+        }
+        this.addShrinkMe(shrinkMe, tranx, growMeOnSameFrond);
         tranx.push(new PetalGrow(this, {}, growMe));
         tranx.push(new FlowerMove(this, growMe.getCenter(-1 * factor)));
       }
     }
-    
+
     console.log("initAnimationState");
     console.log(tranx);
+
     /*
     this.animationState = {changingPetals: []};
     if (petal === this.state.currentPetal) {
@@ -728,6 +766,18 @@ class DiversusFlower extends Heir {
       this.animationState.changingPetals.push({petal: petal, growing: true});
     }
     */
+  }
+  addShrinkMe(shrinkMe, tranx, growMeOnSameFrond) {
+    var lilSib, bigSib;
+    var ps = new PetalShrink(this, {}, shrinkMe);
+    console.log("shrinkMe",shrinkMe)
+    if (bigSib = shrinkMe.getBiggerSibling()) {
+      //alert('bigSib')
+    }
+    tranx.push(ps);
+    if (lilSib = shrinkMe.getSmallerSibling()) {
+      //alert('lilSib')
+    }
   }
   /* BEGINING OF THE ANIMATION
 
@@ -756,7 +806,7 @@ class DiversusFlower extends Heir {
   }
   initializeAnimationState() {
       this.animationState = {
-        tranx: [],  // the transitions, in application precedence order
+        tranx: [],  // the transformations in precedence order (an Array not a Set so order can be changed)
         rmTranx1: new Set() // completed transitions are queued here for removal at endOfLoop()
       };
   }
