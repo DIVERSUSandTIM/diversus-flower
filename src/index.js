@@ -1162,14 +1162,19 @@ class DiversusFlower extends Heir {
     var svgElem = rce(
       'svg',
       {height:'100%', width:'100%',
-       transform: `scale(${this.state.scaleX} ${this.state.scaleY}) ` +
-                  `translate(${this.state.translateX} ${this.state.translateY})`,
-       viewBox:"-100 -100 200 200",  // FIXME why is this not "-100 -100 100 100" ???
-       "className": this.props.svgClassName},
-      [
-        rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
-        this.renderRootPetal(),
-        this.renderFronds()
+       className: this.props.svgClassName,
+       //transform: " translate(-100 -100) scale(.5 .5)",
+       viewBox:"-100 -100 200 200"},  // FIXME why is this not "-100 -100 100 100" ???
+      [ rce('g',
+            {width:"200", height:"200",
+             transform: `scale(${this.state.scaleX} ${this.state.scaleY}) ` +
+             `translate(${this.state.translateX} ${this.state.translateY})`},
+            [
+              rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
+              this.renderRootPetal(),
+              this.renderFronds()
+            ]
+           )
       ]
     );
     return svgElem;
