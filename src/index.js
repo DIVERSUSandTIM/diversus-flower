@@ -559,9 +559,9 @@ class DiversusFlower extends Heir {
     this.state = {
       centralRadius: 50,
       centralPetal: null,
-      fronds: [],
-      petals: []
+      fronds: []
     };
+    this.petalCount = 0;
     this.petalByKey = {};
     this.initAnimation();
   }
@@ -662,6 +662,7 @@ class DiversusFlower extends Heir {
     aFrond.petals.push(args);
     this.state.fronds[idx] = aFrond;
     this.setState({fronds: this.state.fronds});
+    this.petalCount++;
   }
   renderFronds() {
     let retval = [];
@@ -1029,7 +1030,7 @@ class DiversusFlower extends Heir {
     return dists;
   }
   getPetalCount() {
-    return this.state.petals.length;
+    return this.petalCount;
   }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
@@ -1059,11 +1060,12 @@ class DiversusFlower extends Heir {
     if (this.props.demoModeAfterNoDataSec > 0) {
       console.log('preparing demoModeAfterNoDataSec', this.props.demoModeAfterNoDataSec);
       setTimeout(() => {
-        if (this.getPetalCount() == 0) {
-          console.log('no data, so demo mode');
+        var pCount = this.getPetalCount();
+        if (!pCount) {
+          console.log('no data, so demo mode, petalCount:',pCount);
           this.startRandomStream();
         } else {
-          console.log('data, so no demo mode');
+          console.log('data, so no demo mode, petalCount:',pCount);
         }
       }, this.props.demoModeAfterNoDataSec*1000)
     }
