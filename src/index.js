@@ -1061,7 +1061,7 @@ class DiversusFlower extends Heir {
       console.log('preparing demoModeAfterNoDataSec', this.props.demoModeAfterNoDataSec);
       setTimeout(() => {
         var pCount = this.getPetalCount();
-        if (!pCount) {
+        if (!this.getRootKey()) {
           console.log('no data, so demo mode, petalCount:',pCount);
           this.startRandomStream();
         } else {
