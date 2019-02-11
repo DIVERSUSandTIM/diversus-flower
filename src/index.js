@@ -1170,6 +1170,7 @@ class DiversusFlower extends Heir {
              transform: `scale(${this.state.scaleX} ${this.state.scaleY}) ` +
              `translate(${this.state.translateX} ${this.state.translateY})`},
             [
+              rce('rect',{width: 400, height:400, fill: this.props.bgFill, transform: "translate(-200 -200)"}),
               rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
               this.renderRootPetal(),
               this.renderFronds()
@@ -1196,6 +1197,7 @@ DiversusFlower.propTypes = {
 };
 
 DiversusFlower.defaultProps = {
+  bgFill:  "none",
   velocityOfScale: .333,       // 1/3 ie full scale in three seconds
   velocityOfTranslation:  33, // full translation in 3 seconds
   durationOfAnimation: .8,     // 1 seconds
