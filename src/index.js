@@ -272,6 +272,7 @@ class Petal extends React.Component {
     adjusted.idxOfFrond = idxOfFrond;
     adjusted.orderIdx = orderIdx  // TODO rename to idxInFrond
     adjusted.isRoot = !!this.props.isRoot;
+    adjusted.fill = this.props.fill;
     this.setState(adjusted);
   }
   componentDidMount() {
@@ -280,10 +281,10 @@ class Petal extends React.Component {
     //flower.
   }
   render() {
-    let {fill, orderIdx} = this.props;
+    let {orderIdx} = this.props;
     let flower = this.getFlower();
     const petalOpacity = flower.props.petalOpacity;
-    let {cx, cy, centralRadius, myKey, r} = this.state;
+    let {cx, cy, centralRadius, fill, myKey, r} = this.state;
     const petalRadius = flower.state.radii[orderIdx];
     r = (r === undefined) ? petalRadius : r;
     let circleArgs = {cx:cx, cy:cy,
@@ -564,6 +565,7 @@ class DiversusFlower extends Heir {
     this.petalCount = 0;
     this.petalByKey = {};
     this.initAnimation();
+    this.patterns = {};
   }
 
   getPetalRadius(petal) {
@@ -588,7 +590,7 @@ class DiversusFlower extends Heir {
     console.log('startRandomStream');
     let dis = this;
     if (!this.getRootKey()) {  // if no root petal then add one
-      this.setRootPetal({fill:'red'})
+      this.setRootPetal({fillColor:'red'})
     }
     this.randomStreamTimer = setInterval( function(){dis.addRandomPetal()}, interval)
     //this.addRandomPetal(); // run one now!
@@ -612,6 +614,7 @@ class DiversusFlower extends Heir {
       myKey: key,
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
+      thumbUrl: this.props.defaultThumbUrl,
       fillColor: getRandomColor()
     };
     args.title = args.url;
@@ -649,6 +652,23 @@ class DiversusFlower extends Heir {
     }
     return frond ; //this.state.fronds[idx] || {key: idx, relPos: frondRelPos, petals: []};
   }
+  addPatternForPetal(petalArgs) {
+    this.patterns[petalArgs.myKey] = petalArgs.thumbUrl;
+  }
+  putImageInPetal(args) {
+    /*
+     *  Placing an image in a SVG circle.
+     *
+     *  How to make the pattern
+     *    https://stackoverflow.com/a/22886596/1234699
+     *  Using the pattern
+     *    https://stackoverflow.com/a/40390881/1234699
+     *
+     */
+    if (args.thumbUrl) {
+      args.fill = `url(#${args.myKey}_pattern)`;
+    }
+  }
   addPetal(args) {
     let idx = getBinIdx(args.relPos, this.props.numberOfFronds);
     let frondRelPos = getBinMid(idx, this.props.numberOfFronds);
@@ -659,10 +679,43 @@ class DiversusFlower extends Heir {
     if (!args.myKey) {
       args.myKey = args.key;
     }
+    if (args.thumbUrl) {
+      this.addPatternForPetal(args);
+      this.putImageInPetal(args);
+    }
     aFrond.petals.push(args);
     this.state.fronds[idx] = aFrond;
     this.setState({fronds: this.state.fronds});
     this.petalCount++;
+  }
+  renderPatterns() {
+    var retval = [];
+    var count = 0;
+    for (var myKey in this.patterns) {
+      var thumbUrl = this.patterns[myKey];
+      count++;
+      retval.push(
+        rce('pattern', {
+          id: myKey+"_pattern", // reference pattern as: fill="url(#MYKEY_pattern)" when myKey == "MYKEY"
+          height: "100%",
+          width: "100%",
+          patternContentUnits: "objectBoundingBox",
+          viewBox: "0 0 1 1",
+          preserveAspectRatio: "xMidYMid slice",
+        },[
+          rce('image', {
+            height:"1",
+            width:"1",
+            preserveAspectRatio: "xMidYMid slice",
+            href: thumbUrl
+          })]
+           )
+      );
+    }
+    if (count) {
+      return rce('defs',{key: 'theDefs'},retval);
+    }
+    return retval;
   }
   renderFronds() {
     let retval = [];
@@ -672,12 +725,16 @@ class DiversusFlower extends Heir {
         continue;
       }
       for (let petalIdx = 0; petalIdx < aFrond.petals.length; petalIdx++) {
-        let {key, myKey, relPos, fillColor} = aFrond.petals[petalIdx];
+        let {key, myKey, relPos, fill, fillColor} = aFrond.petals[petalIdx];
+        if (relPos > 1 || relPos < 0) {
+          var msg = `Petal has illegal relPos: (${relPos}) and myKey: (${myKey})`;
+          console.warn(msg);
+        }
         if (typeof key == 'undefined') throw new Error('no key');
         retval.push(
           rce(Petal,
               {relPos: aFrond.relPos, key: key, myKey: myKey,
-               orderIdx: petalIdx+1, fill: fillColor,
+               orderIdx: petalIdx+1, fill: fill || fillColor,
                flower: this}));
 
       }
@@ -1142,7 +1199,8 @@ class DiversusFlower extends Heir {
       myKey: key, // redundant because children can not access their own key (wtf)
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
-      fill: 'yellow',
+      thumbUrl: this.props.defaultThumbUrl,
+      fillColor: 'yellow',
       isRoot: true
     };
     for (let [k, v] of Object.entries(args)) {
@@ -1172,6 +1230,7 @@ class DiversusFlower extends Heir {
             [
               rce('rect',{width: 400, height:400, fill: this.props.bgFill, transform: "translate(-200 -200)"}),
               rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
+              this.renderPatterns(),
               this.renderRootPetal(),
               this.renderFronds()
             ]
@@ -1198,6 +1257,7 @@ DiversusFlower.propTypes = {
 
 DiversusFlower.defaultProps = {
   bgFill:  "none",
+  defaultThumbUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2a/Bakunyinportre.jpg",
   velocityOfScale: .333,       // 1/3 ie full scale in three seconds
   velocityOfTranslation:  33, // full translation in 3 seconds
   durationOfAnimation: .8,     // 1 seconds
@@ -1212,7 +1272,7 @@ DiversusFlower.defaultProps = {
   maxRandomPetalCount: 50,
   numberOfFronds: 11,
   packingOfPetals: 8,
-  petalOpacity: 0.80,
+  petalOpacity: 1,
   proportionOfRoot: .33, // .30 times the flowerMinDimension this controls the radius of the root
   proportionOfFocused: .4,
   randomStreamInterval: 1,
