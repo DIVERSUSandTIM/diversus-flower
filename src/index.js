@@ -560,7 +560,8 @@ class DiversusFlower extends Heir {
     this.state = {
       centralRadius: 50,
       centralPetal: null,
-      fronds: []
+      fronds: [],
+      showThumbnails: this.props.showThumbnails
     };
     this.petalCount = 0;
     this.petalByKey = {};
@@ -679,7 +680,7 @@ class DiversusFlower extends Heir {
     if (!args.myKey) {
       args.myKey = args.key;
     }
-    if (args.thumbUrl) {
+    if (this.state.showThumbnails && args.thumbUrl) {
       this.addPatternForPetal(args);
       this.putImageInPetal(args);
     }
@@ -1257,6 +1258,7 @@ DiversusFlower.propTypes = {
 
 DiversusFlower.defaultProps = {
   bgFill:  "none",
+  showThumbnails: false,
   defaultThumbUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2a/Bakunyinportre.jpg",
   velocityOfScale: .333,       // 1/3 ie full scale in three seconds
   velocityOfTranslation:  33, // full translation in 3 seconds
