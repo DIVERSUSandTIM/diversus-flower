@@ -568,7 +568,6 @@ class DiversusFlower extends Heir {
     this.initAnimation();
     this.patterns = {};
   }
-
   getPetalRadius(petal) {
     return petal.petalRadius;
   }
@@ -758,22 +757,7 @@ class DiversusFlower extends Heir {
     return calcRadiusOfPackedCircles(centralRadius || this.state.centralRadius,
                                      this.props.numberOfFronds);
   }
-  XXXgetFocusedPetal() {
-    return this.state.focusedPetal;
-  }
   focusOnPetal(clickedPetal, clickedCircle) {
-    /*
-    var petalCenter = clickedPetal.getCenter();
-    console.log("petalCenter:", petalCenter);
-    let newCenter = {cx: fix(petalCenter.cx), cy: fix(petalCenter.cy)};
-
-    var animArgs = {};
-    if (clickedPetal.isRoot()) { // if the clicked node is the root
-      var priorFocusedPetal = this.getFocusedPetal();
-      animArgs.shrinkPetals = [priorFocusedPetal];  // an array for generality
-      animArgs.growPetals = []
-    }
-    */
     this.initAnimationState(clickedPetal, this.getFocusedPetal());
     this.startAnimation();
     // REVIEW When should the clickedPetal become the focusedPetal?
@@ -911,31 +895,6 @@ class DiversusFlower extends Heir {
   startAnimation() {
     if (MainLoop) {
       /*
-      let newCenter = this.state.center || deadCenter;
-      let oldCenter = this.state.oldCenter || deadCenter;
-      if (JSON.stringify(newCenter) == JSON.stringify(oldCenter)) {
-        console.log("startAnimation() is bailing because finalCenter(",
-                    newCenter, ") equals initialCenter (" + oldCenter + ")");
-        return ([]);
-      }
-      let newCenterStr = (-1 * fix(newCenter.cx)) + ' ' + (-1 * fix(newCenter.cy));
-      let oldCenterStr = fix(oldCenter.cx) + ' ' + fix(oldCenter.cy);
-      console.log("renderCenterer()",oldCenterStr,"==>",newCenterStr);
-      let newScale = this.state.newScale ; //|| this.props.onPeekScaleTo;
-      let oldScale = this.state.oldScale || "1 1";
-      if (samePoint(newCenter,deadCenter)) {
-        console.log("renderCenterer() changing newScale from",newScale,"to '1 1'")
-        newScale = "1 1";
-      }
-      Object.assign(this.animationState, {
-        startTime: Date.now(),
-        initialCenter: oldCenter,
-        finalCenter: newCenter,
-        initialScale: oldScale,
-        finalScale: newScale
-      });
-      */
-      /*
        * There are three possible situations
        *    1) the flower is in the default position (and a petal has been clicked)
        *       * the petal needs to grow from small to large
@@ -956,7 +915,6 @@ class DiversusFlower extends Heir {
     if (MainLoop) {
       this.purgeTranx();
       MainLoop.stop();
-      //this.initializeAnimationState();
     }
   }
   purgeTranx(){
@@ -989,17 +947,6 @@ class DiversusFlower extends Heir {
       });
     }
   }
-  /*
-    Here in updateModel() is where the in-betweening should happen for:
-      1) SVG scale
-      2) SVG translate
-      3) petal-CIRCLE radius
-      4) petel-CIRCLE center
-    We do not call setState() from here though because that would trigger the drawing
-    which is the responsibility of updateModel().
-
-    Here, though we must attend to the fraction of the
-  */
   updateAnimationTransformers(deltaSec) {
     //console.log(`updateAnimationTransformers(${deltaSec})`);
     let elapsed = Date.now() - this.animationState.startTime;
@@ -1109,7 +1056,6 @@ class DiversusFlower extends Heir {
                    translateY: 0,
                    frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
     console.log('calling shiftCenter() from componentWillMount()');
-    //this.shiftCenter(deadCenter);
   }
   componentDidMount() {
     if (this.props.demoMode) {
@@ -1168,7 +1114,6 @@ class DiversusFlower extends Heir {
     return this.petalByKey[this.getRootKey()];
   }
   getFocusedPetal() {
-    // return this.focusedPetal;
     return this.getPetalByKey(this.getFocusedPetalKey());
   }
   getFocusedPetalKey() {
@@ -1188,7 +1133,6 @@ class DiversusFlower extends Heir {
     this.unfocusOldFocusedPetal();
     this.setFocusedPetalKey(petal.getKey());
     petal.isTheFocus = true;
-    //this.focusedPetal = petal;
     //console.info(`setFocusedPetal(${petal.getKey()})`+(petal.isRoot() ? ' ROOT' : ''));
   }
   setRootPetal(args) {
