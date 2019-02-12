@@ -1169,9 +1169,10 @@ class DiversusFlower extends Heir {
        //transform: " translate(-100 -100) scale(.5 .5)",
        viewBox:"-100 -100 200 200"},  // FIXME why is this not "-100 -100 100 100" ???
       [ rce('g',
-            {width:"200", height:"200",
-             transform: `scale(${this.state.scaleX} ${this.state.scaleY}) ` +
-             `translate(${this.state.translateX} ${this.state.translateY})`},
+            {width:"200", height:"200"
+	     //, transform: `scale(${this.state.scaleX} ${this.state.scaleY}) ` +
+             //             `translate(${this.state.translateX} ${this.state.translateY})`
+	    },
             [
               rce('rect',{width: 400, height:400, fill: this.props.bgFill, transform: "translate(-200 -200)"}),
               rce(Reticle,{rayLength:this.props.reticleRayLength, rays:this.props.reticleRays}),
