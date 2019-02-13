@@ -1200,28 +1200,22 @@ DiversusFlower.propTypes = {
   svgClassName: PropTypes.string.isRequired,
   title: PropTypes.string.isRequired
 };
-
 DiversusFlower.defaultProps = {
   bgFill:  "none",
   showThumbnails: false,
   defaultThumbUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2a/Bakunyinportre.jpg",
-  velocityOfScale: .333,       // 1/3 ie full scale in three seconds
-  velocityOfTranslation:  33, // full translation in 3 seconds
   durationOfAnimation: .8,     // 1 seconds
-  onPeekTranslateDuration: "1.5s",
-  onPeekScaleTo: ".5 .5",
-  onPeekScaleDuration: ".5s",
   demoMode: false,
   demoModeAfterNoDataSec: -1,  // meaning NEVER
   demoClickingAfterMsec: -1,  // meaning NEVER
-  fixedColorFronds: true,
+  fixedColorFronds: false,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
   maxRandomPetalCount: 50,
   numberOfFronds: 11,
-  packingOfPetals: 8,
+  packingOfPetals: 9,
   petalOpacity: 1,
-  proportionOfRoot: .33, // .30 times the flowerMinDimension this controls the radius of the root
-  proportionOfFocused: .4,
+  proportionOfRoot: .4,
+  proportionOfFocused: .53333,
   randomStreamInterval: 1,
   reticleRays: 80,
   reticleRayLength: 90,
