@@ -146,8 +146,14 @@ class Petal extends React.Component {
     //   cx: 0.0  // the x coordinate of the center of this petal
     //   cy: 0.0  // the y coordinate of the center of this petal
   }
+  log(...theArgs) {
+    this.getFlower().log.call(theArgs, console);
+  }
+  warn(...theArgs) {
+    this.getFlower().warn.call(theArgs, console);
+  }
   componentWillUnmount() {
-    console.log("componentWillUnmount()");
+    this.log("componentWillUnmount()");
     this.getFlower().unregisterPetal(this);
   }
   getFlower() {
@@ -199,12 +205,12 @@ class Petal extends React.Component {
     evt.preventDefault()
     this.callExternalClickHandlers(evt);
     if (this.isFocused()) {
-      console.log("this node is already the focus, ignoring click");
+      this.log("this node is already the focus, ignoring click");
       // TODO deal with click vs double click
       // This is already the focused petal so there is no need for a transformation, so bail.
       return;
     }
-    console.log('calling focusOnPetal() from onClick()' + (this.isRoot() ? ' for root' : ''));
+    this.log('calling focusOnPetal() from onClick()' + (this.isRoot() ? ' for root' : ''));
     this.props.flower.focusOnPetal(this, evt.target);
   }
   callExternalClickHandlers(evt) {
@@ -291,6 +297,7 @@ class Petal extends React.Component {
                       r:r,
                       id:myKey,
                       stroke:"black", opacity:petalOpacity, fill:fill};
+    this.log('Petal.render()',r,cx,cy);
     if (this.props.title) {
       circleArgs.title = this.props.title;
     }
@@ -339,6 +346,9 @@ class AnimationTransformer {
     console.error(this.constructor.name, "needs update() implemented");
     return true;
   }
+  /*
+   * Return attrs used to directly alter elem attrs without involving React.setState and React.render
+   */
   draw(interProp) {
     console.error(this.constructor.name, "needs draw() implemented");
     return true;
@@ -464,7 +474,7 @@ class PetalTransformer extends AnimationTransformer {
 
     let angle = this.petal.getFrond().angle;
     let finalDistanceFromFlowerCenter = distance(natCent.cx, natCent.cy) + this.radiusTravel;
-    console.warn(this.toString(),'.finalCenter is BS');
+    this.warn(this.toString(),'.finalCenter is BS');
     if (kwargs.finalCenter) {
       this.finalCenter = Object.assign({}, kwargs.finalCenter);
     } else {
@@ -477,10 +487,20 @@ class PetalTransformer extends AnimationTransformer {
                          dy: this.finalCenter.cy - this.initialCenter.cy};
     this.centerTravelPerMsec = {vx: this.centerTravel.dx / this.durationSec / 1000,
                                 vy: this.centerTravel.dy / this.durationSec / 1000};
-    console.log(this);
+    this.log(this);
     this.petalElem = ReactDOM.findDOMNode(petal);
     this.targetComponent = this.petal;
     this.targetElem = this.petalElem;
+  }
+  log(...theArgs) {
+    if (!this.flower.squelch) {
+      this.flower.log(theArgs);
+    }
+  }
+  warn(...theArgs) {
+    if (!this.flower.squelch) {
+      this.flower.warn(theArgs);
+    }
   }
   update(deltaMsec) {
     this.lastRadius = this.radius;
@@ -519,7 +539,7 @@ class PetalTransformer extends AnimationTransformer {
   }
   finalize() {
     let retval = super.finalize();
-    console.warn('possibly too early deletion of instantaneousXYR');
+    this.flower.warn('possibly too early deletion of instantaneousXYR');
     delete this.petal.instantaneousXYR; // we are about to trigger setState so no need for the instantaneousXYR anymore
     // REVIEW possible race condition when a whole frond is being shifted about
     return retval;
@@ -563,10 +583,27 @@ class DiversusFlower extends Heir {
       fronds: [],
       showThumbnails: this.props.showThumbnails
     };
+    this.log = this.props.log;
+    this.warn = this.props.warn;
+    this.squelch = this.props.squelch;
     this.petalCount = 0;
     this.petalByKey = {};
     this.initAnimation();
     this.patterns = {};
+  }
+  log(...theArgs) {
+    console.log("squelch", this.squelch);
+    if (!this.squelch) {
+      this.state.log.call(console, theArgs);
+    }
+  }
+  warn(...theArgs) {
+    if (!this.squelch) {
+      this.state.warn.call(console, theArgs);
+    }
+  }
+  toggleSquelch() {
+    this.squelch = !this.squelch;
   }
   getPetalRadius(petal) {
     return petal.petalRadius;
@@ -576,18 +613,18 @@ class DiversusFlower extends Heir {
     return this;
   }
   toggleRandomStream() {
-    console.log('toggleRandomStream()');
+    this.log('toggleRandomStream()');
     if (this.randomStreamTimer) {
-      console.log("TOGGLE randomStream off")
+      this.log("TOGGLE randomStream off")
       this.stopRandomStream();
     } else {
-      console.log("TOGGLE randomStream on")
+      this.log("TOGGLE randomStream on")
       this.startRandomStream();
     }
   }
   startRandomStream(interval) {
     interval = interval || this.props.randomStreamInterval;
-    console.log('startRandomStream');
+    this.log('startRandomStream');
     let dis = this;
     if (!this.getRootKey()) {  // if no root petal then add one
       this.setRootPetal({fillColor:'red'})
@@ -597,11 +634,11 @@ class DiversusFlower extends Heir {
   }
   stopRandomStream(){
     if (this.randomStreamTimer) {
-      console.log('stopRandomStream');
+      this.log('stopRandomStream');
       clearInterval(this.randomStreamTimer);
       delete this.randomStreamTimer;
     } else {
-      console.log('no randomStreamTimer found');
+      this.log('no randomStreamTimer found');
     }
   }
   addRandomPetal() {
@@ -618,7 +655,7 @@ class DiversusFlower extends Heir {
       fillColor: getRandomColor()
     };
     args.title = args.url;
-    //console.log("args",args);
+    //this.log("args",args);
     this.addPetal(args);
     if (this.randomPetalCount > this.props.maxRandomPetalCount) {
       this.stopRandomStream();
@@ -812,7 +849,7 @@ class DiversusFlower extends Heir {
       } else { // C!=R,F!=R -- shrink the Focused and grow the Clicked
         tranx.push(new FlowerMove(this, growMe.getCenter(-1 * factor)));
         if (shrinkMe.getTheGoods().frond.idx == growMe.getTheGoods().frond.idx) {
-          console.log('same frond');
+          this.log('same frond');
           growMeOnSameFrond = growMe;
           shrinkMeOnSameFrond = shrinkMe;
         }
@@ -880,7 +917,7 @@ class DiversusFlower extends Heir {
         setBegin(this.beginOfLoop.bind(this)).
         setEnd(this.endOfLoop.bind(this));
     } else {
-      console.log('MainLoop unavailable');
+      this.log('MainLoop unavailable');
     }
   }
   initializeAnimationState() {
@@ -906,33 +943,37 @@ class DiversusFlower extends Heir {
        */
       this.animationState.startTime = Date.now();
       this.animationState.durationMsec = this.props.durationOfAnimation * 1000;
-      console.log('MainLoop.start()')
+      this.log('MainLoop.start()')
       MainLoop.start();
     }
   }
   stopAnimation() {
-    console.log('stopAnimation()');
+    this.log('stopAnimation()');
     if (MainLoop) {
       this.purgeTranx();
       MainLoop.stop();
     }
   }
   purgeTranx(){
-    console.log('purgeTranx()',this.animationState.tranx.size)
+    this.log('purgeTranx()', this.animationState.tranx.size)
     this.animationState.tranx.forEach((animTran) => {
       this.animationState.rmTranx1.add(animTran);
     });
     this.finalizeTranx();
   }
+  /*
+   * Remove any AnimationTransformations which have completed during this loop.
+   * Also, perform a React.setState to trigger a React.render during the death throes if the animTranx
+   */
   finalizeTranx() {
     let tranx = this.animationState.tranx;
     let rmTranx1 = this.animationState.rmTranx1;
-    console.log('finalizeTranx()',rmTranx1.size)
+    this.log('finalizeTranx()',rmTranx1.size)
     // remove AnimationTransformers which are done by working back from the end of tranx
     if (rmTranx1.size) {
       rmTranx1.forEach((rmTran) => {
         let finalized =  rmTran.finalize();
-        console.log('finalize', rmTran.toString(), finalized);
+        this.log(rmTran.toString() + '.finalize()', finalized);
         for (var idx = tranx.length - 1 ; idx > -1; idx--) {
           var item = tranx[idx];
           if (item === rmTran) {
@@ -943,18 +984,18 @@ class DiversusFlower extends Heir {
         }
         //tranx.delete(rmTran);
         rmTranx1.delete(rmTran);
-        console.info(`rm ${rmTran} because it is done or unimplemented`);
+        this.log(`rm ${rmTran} because it is done or unimplemented`);
       });
     }
   }
   updateAnimationTransformers(deltaSec) {
-    //console.log(`updateAnimationTransformers(${deltaSec})`);
+    //this.log(`updateAnimationTransformers(${deltaSec})`);
     let elapsed = Date.now() - this.animationState.startTime;
     let animationBudget = this.animationState.durationMsec;
     let tranx = this.animationState.tranx;
     let rmTranx1 = this.animationState.rmTranx1;
 
-    //console.log(`${elapsed} msec > ${animationBudget} msec   numAnimTran: ${tranx.size}`);
+    //this.log(`${elapsed} msec > ${animationBudget} msec   numAnimTran: ${tranx.size}`);
     if (elapsed > animationBudget || tranx.size == 0) {
       // The animation duration has been exceeded, so stop.
       this.stopAnimation();
@@ -971,7 +1012,7 @@ class DiversusFlower extends Heir {
      since they trigger the actual rendering.
   */
   drawAnimationTransformers(interProp) {
-    //console.log(`drawAnimation(${interProp})`)
+    //this.log(`drawAnimation(${interProp})`)
     let tranx = this.animationState.tranx;
     // service each AnimationTransformer, calling its update() and recording those which are done
     let transforms = ["scale(.2 .2)" , "translate(30 30)"];
@@ -983,7 +1024,7 @@ class DiversusFlower extends Heir {
         svg = animTran.flowerElem;
         transforms.push(animTran.transform);
       }
-      console.log('drawing', animTran.toString(), interProp, delta);
+      this.log('drawing', this.constructor.name, animTran.toString(), interProp, delta);
     }, this);
     if (svg) {
       let transformation = transforms.join(' ');
@@ -1000,12 +1041,12 @@ class DiversusFlower extends Heir {
     endOfLoop() always runs exactly once per frame.
    */
   endOfLoop(fps, panic) {
-    //console.log('endOfLoop()');
+    //this.log('endOfLoop()');
     this.finalizeTranx();
-    console.log(fps,"FPS");
+    this.log(fps,"FPS");
     if (panic) {
       var discardedTime = Math.round(MainLoop.resetFrameDelta());
-      console.warn("MainLoop panicked, probably because the browser tab was put in tthe background",
+      console.warn("MainLoop panicked, probably because the browser tab was put in the background",
                    `Discarding ${discardedTime}ms`);
 
     }
@@ -1044,7 +1085,7 @@ class DiversusFlower extends Heir {
       should preceed render() and follow constructor()
     */
     let centralRadius = this.props.proportionOfRoot * this.props.flowerMinDimension;
-    console.log("setting centralRadius", centralRadius);
+    this.log("setting centralRadius", centralRadius);
     this.setState({centralRadius: centralRadius});
     let radii = this.calcRadii(centralRadius);
     let dists = this.calcDists(radii);
@@ -1055,21 +1096,21 @@ class DiversusFlower extends Heir {
                    translateX: 0,
                    translateY: 0,
                    frondRadius: this.calcFrondRadius(centralRadius)}); // HACK sending centralRadius
-    console.log('calling shiftCenter() from componentWillMount()');
+    this.log('calling shiftCenter() from componentWillMount()');
   }
   componentDidMount() {
     if (this.props.demoMode) {
       this.startRandomStream()
     }
     if (this.props.demoModeAfterNoDataSec > 0) {
-      console.log('preparing demoModeAfterNoDataSec', this.props.demoModeAfterNoDataSec);
+      this.log('preparing demoModeAfterNoDataSec', this.props.demoModeAfterNoDataSec);
       setTimeout(() => {
         var pCount = this.getPetalCount();
         if (!pCount) {
-          console.log('no data, so demo mode, petalCount:',pCount);
+          this.log('no data, so demo mode, petalCount:',pCount);
           this.startRandomStream();
         } else {
-          console.log('data, so no demo mode, petalCount:',pCount);
+          this.log('data, so no demo mode, petalCount:',pCount);
         }
       }, this.props.demoModeAfterNoDataSec*1000)
     }
@@ -1089,7 +1130,7 @@ class DiversusFlower extends Heir {
     if (this.petalClickHandler) {
       this.petalClickHandler.call(evt, petal);
     }
-    console.log('calling peekAtPetal() from callOnPetalClick()');
+    this.log('calling peekAtPetal() from callOnPetalClick()');
     //this.peekAtPetal(petal);
   }
   getFocusedRadius() {
@@ -1220,7 +1261,10 @@ DiversusFlower.defaultProps = {
   reticleRays: 80,
   reticleRayLength: 90,
   svgClassName: 'diversus-flower',
-  title: "Hello"
+  title: "Hello",
+  log: function(){}, //console.log,
+  warn: function(){}, // console.warn,
+  squelch: true
 };
 
   this.DiversusFlower = DiversusFlower;
