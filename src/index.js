@@ -692,6 +692,12 @@ class DiversusFlower extends Heir {
   addPatternForPetal(petalArgs) {
     this.patterns[petalArgs.myKey] = petalArgs.thumbUrl;
   }
+  registerPatternToPetal(args) {
+    if (this.state.showThumbnails && args.thumbUrl) {
+      this.addPatternForPetal(args);
+      this.putImageInPetal(args);
+    }
+  }
   putImageInPetal(args) {
     /*
      *  Placing an image in a SVG circle.
@@ -716,10 +722,7 @@ class DiversusFlower extends Heir {
     if (!args.myKey) {
       args.myKey = args.key;
     }
-    if (this.state.showThumbnails && args.thumbUrl) {
-      this.addPatternForPetal(args);
-      this.putImageInPetal(args);
-    }
+    this.registerPatternToPetal(args);
     aFrond.petals.push(args);
     this.state.fronds[idx] = aFrond;
     this.setState({fronds: this.state.fronds});
@@ -1179,20 +1182,23 @@ class DiversusFlower extends Heir {
   setRootPetal(args) {
     let key = getRandomId('p'); // unique!
     let rootArgs = {
-      relPos: null, // normally a number, null signifies the root petal
-      orderIdx: 0,            // zero for the central node?
+      relPos: null, // normally a number, null signifies the root petal, not unique
+      orderIdx: 0,  // zero for the central node?
       key: key,
-      myKey: key, // redundant because children can not access their own key (wtf)
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
-      thumbUrl: this.props.defaultThumbUrl,
+      thumbUrl: args.thumbUrl || this.props.defaultThumbUrl,
       fillColor: 'yellow',
       isRoot: true
     };
     for (let [k, v] of Object.entries(args)) {
       rootArgs[k] = v;
     }
-    this.setState({'rootArgs': rootArgs})
+    if (!rootArgs.myKey) { // redundant because children can not access their own key (wtf)
+      rootArgs.myKey = rootArgs.key;
+    }
+    this.registerPatternToPetal(rootArgs);
+    this.setState({'rootArgs': rootArgs});
     this.setFocusedPetalKey(rootArgs.key);
   }
   // https://codeburst.io/4-four-ways-to-style-react-components-ac6f323da822
