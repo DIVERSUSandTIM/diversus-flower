@@ -1081,6 +1081,15 @@ class DiversusFlower extends Heir {
   getPetalCount() {
     return this.petalCount;
   }
+  update_currentTime_and_relPos(currentTime, relPos) {
+    /*
+     * currentTime is the currentTime of the video being played
+     * relPos is (currentTime / totalDuration) and is therefore a float from 0 to 1
+     *
+     * These relate to the currently playing video, ie the currently focused video.
+     * Namely, either the root or a petal.
+     */
+  }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
     /*
