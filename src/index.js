@@ -1088,7 +1088,10 @@ class DiversusFlower extends Heir {
      *
      * These relate to the currently playing video, ie the currently focused video.
      * Namely, either the root or a petal.
+     *
+     * A consideration in that this method seems to be called once every .25 sec or so.
      */
+    console.log(currentTime, relPos);
   }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
