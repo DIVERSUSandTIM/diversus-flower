@@ -1091,7 +1091,7 @@ class DiversusFlower extends Heir {
      *
      * A consideration in that this method seems to be called once every .25 sec or so.
      */
-    console.log(currentTime, relPos);
+    //console.log(currentTime, relPos);
   }
   componentWillMount() {
     // https://developmentarc.gitbooks.io/react-indepth/content/life_cycle/birth/premounting_with_componentwillmount.html
@@ -1135,7 +1135,7 @@ class DiversusFlower extends Heir {
   }
   callOnRootClick(evt, petal) {
     if (this.rootClickHandler) {
-      this.rootClickHandler.call(evt, petal);
+      this.rootClickHandler.call(this, evt, petal);
     }
   }
   setPetalClickHandler(handler) {
@@ -1143,7 +1143,7 @@ class DiversusFlower extends Heir {
   }
   callOnPetalClick(evt, petal) {
     if (this.petalClickHandler) {
-      this.petalClickHandler.call(evt, petal);
+      this.petalClickHandler.call(this, evt, petal);
     }
     this.log('calling peekAtPetal() from callOnPetalClick()');
     //this.peekAtPetal(petal);
