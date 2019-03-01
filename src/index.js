@@ -200,9 +200,18 @@ class Petal extends React.Component {
       return retval;
     }
   }
+  isDblClick() {
+    return (this.momentOfLastClick && (Date.now() - this.momentOfLastClick < this.getFlower().props.dblClickMs));
+  }
   onClick(evt) {
     evt.stopPropagation()
     evt.preventDefault()
+    if (this.isDblClick()) {
+      console.log("DOUBLE CLICK");
+      this.callExternalDblClickHandlers();
+      return;
+    }
+    this.momentOfLastClick = Date.now();
     this.callExternalClickHandlers(evt);
     if (this.isFocused()) {
       this.log("this node is already the focus, ignoring click");
@@ -218,6 +227,13 @@ class Petal extends React.Component {
       this.props.flower.callOnRootClick(evt, this);
     } else {
       this.props.flower.callOnPetalClick(evt, this);
+    }
+  }
+  callExternalDblClickHandlers(evt) {
+    if (this.isRoot()) {
+      this.props.flower.callOnRootDblClick(evt, this);
+    } else {
+      this.props.flower.callOnPetalDblClick(evt, this);
     }
   }
   getCenter(factor) {
@@ -1141,12 +1157,25 @@ class DiversusFlower extends Heir {
   setPetalClickHandler(handler) {
     this.petalClickHandler = handler;
   }
+  setPetalDblClickHandler(handler) {
+    this.petalDblClickHandler = handler;
+  }
   callOnPetalClick(evt, petal) {
     if (this.petalClickHandler) {
       this.petalClickHandler.call(this, evt, petal);
     }
     this.log('calling peekAtPetal() from callOnPetalClick()');
     //this.peekAtPetal(petal);
+  }
+  callOnPetalDblClick(evt, petal) {
+    if (this.petalDblClickHandler) {
+      this.petalDblClickHandler.call(this, evt, petal);
+    }
+  }
+  callOnRootDblClick(evt, petal) {
+    if (this.rootDblClickHandler) {
+      this.rootDblClickHandler.call(this, evt, petal);
+    }
   }
   getFocusedRadius() {
     return this.props.proportionOfFocused  * this.props.flowerMinDimension / 3;
@@ -1267,6 +1296,7 @@ DiversusFlower.defaultProps = {
   demoMode: false,
   demoModeAfterNoDataSec: -1,  // meaning NEVER
   demoClickingAfterMsec: -1,  // meaning NEVER
+  dblClickMs: 500,
   fixedColorFronds: false,
   flowerMinDimension: 100, // distance from center to closest top or side of SVG in pixels
   maxRandomPetalCount: 50,
