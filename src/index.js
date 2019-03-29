@@ -305,14 +305,18 @@ class Petal extends React.Component {
   render() {
     let {orderIdx} = this.props;
     let flower = this.getFlower();
-    const petalOpacity = flower.props.petalOpacity;
+    const {petalOpacity, strokeWidth} = flower.props;
     let {cx, cy, centralRadius, fill, myKey, r} = this.state;
+    let {stroke} = this.props;
     const petalRadius = flower.state.radii[orderIdx];
     r = (r === undefined) ? petalRadius : r;
     let circleArgs = {cx:cx, cy:cy,
                       r:r,
                       id:myKey,
-                      stroke:"black", opacity:petalOpacity, fill:fill};
+                      strokeWidth: strokeWidth,
+                      stroke: stroke || 'red',
+                      opacity:petalOpacity,
+                      fill:fill};
     this.log('Petal.render()',r,cx,cy);
     if (this.props.title) {
       circleArgs.title = this.props.title;
@@ -668,6 +672,7 @@ class DiversusFlower extends Heir {
       sortKey: Math.random(), // not unique
       url: getRandomId("http://example.org/"),
       thumbUrl: this.props.defaultThumbUrl,
+      stroke: getRandomColor(),
       fillColor: getRandomColor()
     };
     args.title = args.url;
@@ -781,7 +786,7 @@ class DiversusFlower extends Heir {
         continue;
       }
       for (let petalIdx = 0; petalIdx < aFrond.petals.length; petalIdx++) {
-        let {key, myKey, relPos, fill, fillColor} = aFrond.petals[petalIdx];
+        let {key, myKey, relPos, fill, fillColor, stroke} = aFrond.petals[petalIdx];
         if (relPos > 1 || relPos < 0) {
           var msg = `Petal has illegal relPos: (${relPos}) and myKey: (${myKey})`;
           console.warn(msg);
@@ -790,6 +795,7 @@ class DiversusFlower extends Heir {
         retval.push(
           rce(Petal,
               {relPos: aFrond.relPos, key: key, myKey: myKey,
+               stroke: stroke,
                orderIdx: petalIdx+1, fill: fill || fillColor,
                flower: this}));
 
@@ -1308,6 +1314,7 @@ DiversusFlower.defaultProps = {
   randomStreamInterval: 1,
   reticleRays: 80,
   reticleRayLength: 90,
+  strokeWidth: 1,
   svgClassName: 'diversus-flower',
   title: "Hello",
   log: function(){}, //console.log,
